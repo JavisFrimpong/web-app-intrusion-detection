@@ -1,153 +1,534 @@
-from scapy.all import sniff, IP, TCP
+import time
+from datetime import datetime
 from collections import defaultdict
+
+from scapy.all import sniff, IP, TCP
 
 from feature_extractor import extract_features
 from predictor import predict_flow
+from prediction_store import update_prediction
 
 
-flows = defaultdict(list)
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+# Total monitoring duration
+TOTAL_DURATION = 30
+
+# Capture/prediction interval
+INTERVAL = 10
+
+# Your external network interface
+INTERFACE = r"\Device\NPF_{4A00996A-D968-49BF-9076-5F7993E80B13}"
+
+# Capture TCP traffic from the network interface
+CAPTURE_FILTER = "tcp"
 
 
-def process_packet(packet):
+# ============================================================
+# PROCESS A FLOW
+# ============================================================
 
-    if not packet.haslayer(IP) or not packet.haslayer(TCP):
+def process_flow(packets):
+
+    if not packets:
         return
 
-    ip = packet[IP]
-    tcp = packet[TCP]
+    print("\n" + "=" * 60)
+    print("TCP FLOW COMPLETED")
+    print("=" * 60)
 
-    src_ip = ip.src
-    dst_ip = ip.dst
-    src_port = tcp.sport
-    dst_port = tcp.dport
+    print("Total packets:", len(packets))
 
-    # --------------------------------------------------------
-    # Normalize the flow
-    # --------------------------------------------------------
+    try:
 
-    endpoint1 = (src_ip, src_port)
-    endpoint2 = (dst_ip, dst_port)
+        # ----------------------------------------------------
+        # Extract 78 features
+        # ----------------------------------------------------
 
-    flow_key = tuple(sorted([endpoint1, endpoint2]))
+        features = extract_features(packets)
 
-    flows[flow_key].append(packet)
+        print(
+            "Features extracted:",
+            len(features)
+        )
 
-    packet_count = len(flows[flow_key])
+        if len(features) != 78:
 
-    print(
-        f"Flow: {src_ip}:{src_port} -> "
-        f"{dst_ip}:{dst_port} | "
-        f"Packets: {packet_count}"
-    )
+            print(
+                "ERROR: Expected 78 features, "
+                f"but received {len(features)}"
+            )
 
-    # --------------------------------------------------------
-    # Process completed TCP flow
-    # --------------------------------------------------------
+            return
 
-    if tcp.flags & 0x01 or tcp.flags & 0x04:
+        print("SUCCESS: 78 features extracted.")
 
-        completed_flow = flows.pop(flow_key)
+        # ----------------------------------------------------
+        # Machine Learning prediction
+        # ----------------------------------------------------
+
+        result = predict_flow(features)
+
+        # ----------------------------------------------------
+        # Get flow information
+        # ----------------------------------------------------
+
+        first_packet = packets[0]
+
+        source_ip = first_packet[IP].src
+        destination_ip = first_packet[IP].dst
+
+        source_port = first_packet[TCP].sport
+        destination_port = first_packet[TCP].dport
+
+        # ----------------------------------------------------
+        # Timestamp
+        # ----------------------------------------------------
+
+        timestamp = datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+        # ----------------------------------------------------
+        # Display prediction
+        # ----------------------------------------------------
 
         print("\n" + "=" * 60)
-        print("TCP FLOW COMPLETED")
+        print("PREDICTION RESULT")
+        print("=" * 60)
+
+        print("Time:", timestamp)
+
+        print(
+            "Source:",
+            f"{source_ip}:{source_port}"
+        )
+
+        print(
+            "Destination:",
+            f"{destination_ip}:{destination_port}"
+        )
+
+        print(
+            "Prediction:",
+            result["attack_type"]
+        )
+
+        print(
+            "Confidence:",
+            f'{result["confidence"]}%'
+        )
+
+        print(
+            "Encoded label:",
+            result["prediction"]
+        )
+
+        print("=" * 60)
+
+        # ----------------------------------------------------
+        # Store prediction
+        # ----------------------------------------------------
+
+        update_prediction(
+            prediction=result["prediction"],
+            attack_type=result["attack_type"],
+            confidence=result["confidence"],
+            source_ip=source_ip,
+            source_port=source_port,
+            destination_ip=destination_ip,
+            destination_port=destination_port,
+            packet_count=len(packets)
+        )
+
+        print("Prediction saved to database.")
+
+    except Exception as error:
+
+        print("\n" + "=" * 60)
+        print("FLOW PROCESSING ERROR")
         print("=" * 60)
 
         print(
-            "Total packets:",
-            len(completed_flow)
+            type(error).__name__,
+            ":",
+            error
         )
 
-        try:
+        print("=" * 60)
 
-            # ------------------------------------------------
-            # Extract 78 features
-            # ------------------------------------------------
 
-            features = extract_features(
-                completed_flow
+# ============================================================
+# CAPTURE ONE 10-SECOND WINDOW
+# ============================================================
+
+def capture_window(window_number):
+
+    flows = defaultdict(list)
+
+    print("\n" + "#" * 60)
+    print(
+        f"STARTING CAPTURE WINDOW {window_number}/"
+        f"{TOTAL_DURATION // INTERVAL}"
+    )
+    print("#" * 60)
+
+    start_time = time.time()
+
+    print(
+        "Start time:",
+        datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+    )
+
+    # --------------------------------------------------------
+    # Collect packets
+    # --------------------------------------------------------
+
+    def collect_packet(packet):
+
+        if not packet.haslayer(IP):
+            return
+
+        if not packet.haslayer(TCP):
+            return
+
+        ip = packet[IP]
+        tcp = packet[TCP]
+
+        source = (
+            ip.src,
+            tcp.sport
+        )
+
+        destination = (
+            ip.dst,
+            tcp.dport
+        )
+
+        # ----------------------------------------------------
+        # Normalize both directions into one flow
+        # ----------------------------------------------------
+
+        flow_key = tuple(
+            sorted(
+                [source, destination]
+            )
+        )
+
+        flows[flow_key].append(packet)
+
+    # --------------------------------------------------------
+    # Capture for 10 seconds
+    # --------------------------------------------------------
+
+    sniff(
+        iface=INTERFACE,
+        filter=CAPTURE_FILTER,
+        prn=collect_packet,
+        store=False,
+        timeout=INTERVAL
+    )
+
+    elapsed = time.time() - start_time
+
+    # --------------------------------------------------------
+    # Window summary
+    # --------------------------------------------------------
+
+    total_packets = sum(
+        len(packets)
+        for packets in flows.values()
+    )
+
+    print("\n" + "#" * 60)
+    print(
+        f"CAPTURE WINDOW {window_number} COMPLETED"
+    )
+    print("#" * 60)
+
+    print(
+        "Duration:",
+        round(elapsed, 2),
+        "seconds"
+    )
+
+    print(
+        "Flows captured:",
+        len(flows)
+    )
+
+    print(
+        "Total packets:",
+        total_packets
+    )
+
+    # --------------------------------------------------------
+    # Analyze every flow
+    # --------------------------------------------------------
+
+    if not flows:
+
+        print(
+            "\nNo TCP flows detected during this window."
+        )
+
+    else:
+
+        print(
+            "\nAnalyzing",
+            len(flows),
+            "flow(s)..."
+        )
+
+        for packets in flows.values():
+
+            process_flow(packets)
+
+    print("\nWindow processing complete.")
+
+    return {
+        "flows": len(flows),
+        "packets": total_packets,
+        "duration": elapsed
+    }
+
+
+# ============================================================
+# 30-SECOND MONITORING SESSION
+# ============================================================
+
+def start_monitoring():
+
+    print("\n" + "=" * 60)
+    print("MACHINE LEARNING INTRUSION DETECTION SYSTEM")
+    print("=" * 60)
+
+    print(
+        "Interface:",
+        INTERFACE
+    )
+
+    print(
+        "Filter:",
+        CAPTURE_FILTER
+    )
+
+    print(
+        "Total monitoring duration:",
+        TOTAL_DURATION,
+        "seconds"
+    )
+
+    print(
+        "Capture interval:",
+        INTERVAL,
+        "seconds"
+    )
+
+    print(
+        "Number of capture windows:",
+        TOTAL_DURATION // INTERVAL
+    )
+
+    print("\nMonitoring is ACTIVE.")
+
+    print(
+        "The system will capture for 30 seconds "
+        "in three 10-second windows."
+    )
+
+    print(
+        "Press CTRL+C to stop the IDS."
+    )
+
+    print("=" * 60)
+
+    total_packets = 0
+    total_flows = 0
+
+    monitoring_start = datetime.now()
+
+    session_start = time.time()
+
+    window_number = 1
+
+    try:
+
+        # ----------------------------------------------------
+        # Run exactly three 10-second windows
+        # ----------------------------------------------------
+
+        while (
+            window_number <= TOTAL_DURATION // INTERVAL
+            and (time.time() - session_start) < TOTAL_DURATION
+        ):
+
+            print("\n\n")
+            print("=" * 60)
+
+            print(
+                "MONITORING WINDOW",
+                f"{window_number}/"
+                f"{TOTAL_DURATION // INTERVAL}"
+            )
+
+            print("=" * 60)
+
+            result = capture_window(window_number)
+
+            total_packets += result["packets"]
+            total_flows += result["flows"]
+
+            print("\n" + "-" * 60)
+            print("MONITORING STATISTICS")
+            print("-" * 60)
+
+            print(
+                "Windows processed:",
+                window_number
             )
 
             print(
-                "Features extracted:",
-                len(features)
+                "Total flows:",
+                total_flows
             )
 
-            if len(features) != 78:
+            print(
+                "Total packets:",
+                total_packets
+            )
 
-                print(
-                    "ERROR: Expected 78 features, "
-                    f"but got {len(features)}"
+            print(
+                "Monitoring since:",
+                monitoring_start.strftime(
+                    "%Y-%m-%d %H:%M:%S"
                 )
-
-                return
-
-            print(
-                "SUCCESS: 78 features extracted."
             )
 
-            # ------------------------------------------------
-            # Run machine-learning prediction
-            # ------------------------------------------------
+            print("-" * 60)
 
-            result = predict_flow(features)
+            window_number += 1
 
-            # ------------------------------------------------
-            # Display prediction
-            # ------------------------------------------------
+        # ----------------------------------------------------
+        # Session completed
+        # ----------------------------------------------------
 
-            print("\n" + "=" * 60)
-            print("PREDICTION RESULT")
-            print("=" * 60)
+        monitoring_end = datetime.now()
 
-            print(
-                "Prediction:",
-                result["attack_type"]
+        total_duration = (
+            monitoring_end -
+            monitoring_start
+        )
+
+        print("\n\n")
+        print("=" * 60)
+        print("30-SECOND MONITORING SESSION COMPLETED")
+        print("=" * 60)
+
+        print(
+            "Started:",
+            monitoring_start.strftime(
+                "%Y-%m-%d %H:%M:%S"
             )
+        )
 
-            print(
-                "Confidence:",
-                f'{result["confidence"]}%'
+        print(
+            "Completed:",
+            monitoring_end.strftime(
+                "%Y-%m-%d %H:%M:%S"
             )
+        )
 
-            print(
-                "Encoded label:",
-                result["prediction"]
+        print(
+            "Total duration:",
+            total_duration
+        )
+
+        print(
+            "Windows processed:",
+            window_number - 1
+        )
+
+        print(
+            "Total flows:",
+            total_flows
+        )
+
+        print(
+            "Total packets:",
+            total_packets
+        )
+
+        print("=" * 60)
+
+        print(
+            "\nAll predictions have been stored "
+            "in the prediction database."
+        )
+
+        print(
+            "Monitoring session complete."
+        )
+
+    except KeyboardInterrupt:
+
+        monitoring_end = datetime.now()
+
+        duration = (
+            monitoring_end -
+            monitoring_start
+        )
+
+        print("\n\n")
+        print("=" * 60)
+        print("IDS MONITORING INTERRUPTED")
+        print("=" * 60)
+
+        print(
+            "Started:",
+            monitoring_start.strftime(
+                "%Y-%m-%d %H:%M:%S"
             )
+        )
 
-            print("=" * 60)
-
-        except Exception as error:
-
-            print("\n" + "=" * 60)
-            print("PREDICTION ERROR")
-            print("=" * 60)
-
-            print(
-                type(error).__name__,
-                ":",
-                error
+        print(
+            "Stopped:",
+            monitoring_end.strftime(
+                "%Y-%m-%d %H:%M:%S"
             )
+        )
 
-            print("=" * 60)
+        print(
+            "Monitoring duration:",
+            duration
+        )
 
-        print()
+        print(
+            "Windows processed:",
+            window_number - 1
+        )
 
-# ------------------------------------------------------------
-# Start packet capture
-# ------------------------------------------------------------
+        print(
+            "Total flows:",
+            total_flows
+        )
 
-print(
-    "Starting TCP flow capture on port 8000..."
-)
+        print(
+            "Total packets:",
+            total_packets
+        )
 
-print(
-    "Press CTRL+C to stop."
-)
+        print("\nIDS shutdown complete.")
 
 
-sniff(
-    iface=r"\Device\NPF_Loopback",
-    filter="tcp port 8000",
-    prn=process_packet,
-    store=False
-)
+# ============================================================
+# PROGRAM ENTRY POINT
+# ============================================================
+
+if __name__ == "__main__":
+
+    start_monitoring()

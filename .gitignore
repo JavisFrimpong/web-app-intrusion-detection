@@ -27,3 +27,6 @@ app/test-web/venv/
 
 # Traffic monitor virtual environment
 app/traffic-monitor/venv/
+
+# Traffic monitor runtime database
+app/traffic-monitor/predictions.db

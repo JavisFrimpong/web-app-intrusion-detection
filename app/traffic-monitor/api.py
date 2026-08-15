@@ -1,10 +1,17 @@
 from flask import Flask, jsonify
 
-from predictor import predict_flow
+from prediction_store import (
+    get_latest_prediction,
+    get_prediction_history
+)
 
 
 app = Flask(__name__)
 
+
+# ============================================================
+# HEALTH CHECK
+# ============================================================
 
 @app.route("/api/health", methods=["GET"])
 def health():
@@ -15,6 +22,10 @@ def health():
     })
 
 
+# ============================================================
+# TEST PREDICTION API
+# ============================================================
+
 @app.route("/api/test-prediction", methods=["GET"])
 def test_prediction():
 
@@ -22,6 +33,43 @@ def test_prediction():
         "message": "Prediction API is ready."
     })
 
+
+# ============================================================
+# GET LATEST PREDICTION
+# ============================================================
+
+@app.route("/api/latest", methods=["GET"])
+def latest_prediction():
+
+    prediction = get_latest_prediction()
+
+    if prediction is None:
+
+        return jsonify({
+            "message": "No predictions have been recorded yet."
+        }), 404
+
+    return jsonify(prediction)
+
+
+# ============================================================
+# GET PREDICTION HISTORY
+# ============================================================
+
+@app.route("/api/history", methods=["GET"])
+def prediction_history():
+
+    history = get_prediction_history()
+
+    return jsonify({
+        "count": len(history),
+        "predictions": history
+    })
+
+
+# ============================================================
+# START API SERVER
+# ============================================================
 
 if __name__ == "__main__":
 
