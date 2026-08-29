@@ -14,7 +14,7 @@ import {
 import ConfidenceMeter from '../ConfidenceMeter/ConfidenceMeter';
 import { getThreatSeverity, formatTimestamp } from '../../utils/formatters';
 
-export default function PredictionCard({ predictionResult, simulated = false }) {
+export default function PredictionCard({ predictionResult }) {
   if (!predictionResult) return null;
 
   const { prediction, attack_type, confidence, timestamp } = predictionResult;
@@ -58,11 +58,6 @@ export default function PredictionCard({ predictionResult, simulated = false }) 
           <span className={`px-3 py-1 text-xs font-extrabold uppercase tracking-widest rounded-full border font-mono ${severity.badgeClass}`}>
             {severity.level}
           </span>
-          {simulated && (
-            <span className="text-[10px] text-amber-400 font-mono bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
-              Offline Simulation
-            </span>
-          )}
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar/Sidebar';
 import Navbar from '../components/Navbar/Navbar';
 import Footer from '../components/Footer/Footer';
+import ThreatAlertToast from '../components/ThreatAlertToast/ThreatAlertToast';
 
 export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -10,6 +11,9 @@ export default function DashboardLayout() {
 
   return (
     <div className="min-h-screen bg-cyber-grid bg-radial-gradient flex flex-col text-slate-100">
+      {/* Global alert toast notifier */}
+      <ThreatAlertToast />
+
       {/* Sidebar Navigation */}
       <Sidebar 
         collapsed={collapsed} 

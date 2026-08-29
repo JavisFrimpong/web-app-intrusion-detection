@@ -4,6 +4,8 @@ from flask_cors import CORS
 from utils.model_loader import load_model
 from routes.prediction import prediction_bp
 from routes.status import status_bp
+from routes.history import history_bp
+from routes.live_scanner import live_scanner_bp
 
 
 app = Flask(__name__)
@@ -24,6 +26,16 @@ app.register_blueprint(
 
 app.register_blueprint(
     status_bp,
+    url_prefix="/api"
+)
+
+app.register_blueprint(
+    history_bp,
+    url_prefix="/api"
+)
+
+app.register_blueprint(
+    live_scanner_bp,
     url_prefix="/api"
 )
 

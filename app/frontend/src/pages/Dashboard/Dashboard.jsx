@@ -20,15 +20,19 @@ import ThreatCategoryBarChart from '../../components/Charts/ThreatCategoryBarCha
 import DetectionTable from '../../components/DetectionTable/DetectionTable';
 import { useSystemStatus } from '../../hooks/useSystemStatus';
 import { useDetectionHistory } from '../../hooks/useDetectionHistory';
-import { 
-  MOCK_TRAFFIC_TIMELINE, 
-  MOCK_ATTACK_DISTRIBUTION, 
-  MOCK_THREAT_CATEGORIES 
-} from '../../utils/presetData';
 
 export default function Dashboard() {
-  const { isOnline, model, status } = useSystemStatus();
-  const { history, totalCount, threatCount, benignCount } = useDetectionHistory();
+  const { isOnline: isSystemOnline, model, status } = useSystemStatus();
+  const { 
+    history, 
+    stats, 
+    totalCount, 
+    threatCount, 
+    benignCount, 
+    isOnline: isDbOnline 
+  } = useDetectionHistory();
+
+  const isApiConnected = isDbOnline || isSystemOnline;
 
   return (
     <div className="space-y-6">
@@ -44,7 +48,7 @@ export default function Dashboard() {
           <div className="space-y-1.5 max-w-2xl">
             <div className="flex items-center space-x-2">
               <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono">
-                FINAL YEAR PROJECT DEMO
+                ENTERPRISE SOC PROTECTION
               </span>
               <span className="text-slate-500 text-xs">•</span>
               <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
@@ -57,7 +61,7 @@ export default function Dashboard() {
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-400 font-sans leading-relaxed">
-              Real-time anomaly detection and web attack classification powered by a trained <strong className="text-cyan-400 font-mono">Random Forest ML model</strong> connected to Flask backend.
+              Real-time anomaly detection and web attack classification powered by a trained <strong className="text-cyan-400 font-mono">Random Forest ML model</strong> connected to production API engine.
             </p>
           </div>
 
@@ -66,7 +70,7 @@ export default function Dashboard() {
             className="inline-flex items-center justify-center px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-400 text-slate-950 font-extrabold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-lg shadow-cyan-500/25 shrink-0 gap-2 group"
           >
             <Zap className="w-4 h-4 fill-slate-950" />
-            <span>Test Traffic Classifier</span>
+            <span>View Live Detections</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
@@ -76,13 +80,13 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatusCard
           title="System Status"
-          value={status === 'active' || isOnline ? 'ACTIVE' : 'STANDBY'}
+          value={status === 'active' || isApiConnected ? 'ACTIVE' : 'STANDBY'}
           subtext="IDS Shield Enabled"
           icon={ShieldCheck}
           color="emerald"
           badge={{
-            text: isOnline ? 'LIVE' : 'DEMO',
-            className: isOnline ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'
+            text: 'LIVE PROTECTION',
+            className: 'bg-emerald-500/20 text-emerald-300'
           }}
         />
 
@@ -100,13 +104,13 @@ export default function Dashboard() {
 
         <StatusCard
           title="API Connection"
-          value={isOnline ? 'Connected' : 'Simulation'}
+          value={isApiConnected ? 'Connected' : 'Offline'}
           subtext="http://127.0.0.1:5000"
           icon={Server}
-          color={isOnline ? 'blue' : 'purple'}
+          color={isApiConnected ? 'blue' : 'red'}
           badge={{
-            text: isOnline ? '200 OK' : 'LOCAL',
-            className: isOnline ? 'bg-blue-500/20 text-blue-300' : 'bg-purple-500/20 text-purple-300'
+            text: isApiConnected ? '200 OK' : 'UNREACHABLE',
+            className: isApiConnected ? 'bg-blue-500/20 text-blue-300' : 'bg-red-500/20 text-red-300'
           }}
         />
 
@@ -133,11 +137,10 @@ export default function Dashboard() {
 
         <StatusCard
           title="Traffic Analysed"
-          value={`${totalCount + 11450}`}
-          subtext="Total Packet Flows"
+          value={totalCount.toString()}
+          subtext="Total Packet Flows Captured"
           icon={Activity}
           color="blue"
-          trend={{ text: '+12/m', positive: true }}
         />
       </div>
 
@@ -159,7 +162,7 @@ export default function Dashboard() {
             </span>
           </div>
 
-          <TrafficLineChart data={MOCK_TRAFFIC_TIMELINE} />
+          <TrafficLineChart data={stats.trafficTimeline} />
         </div>
 
         {/* Attack Distribution Pie Chart (1 col) */}
@@ -173,7 +176,7 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <AttackPieChart data={MOCK_ATTACK_DISTRIBUTION} />
+          <AttackPieChart data={stats.attackDistribution} />
         </div>
       </div>
 
@@ -189,7 +192,7 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <ThreatCategoryBarChart data={MOCK_THREAT_CATEGORIES} />
+          <ThreatCategoryBarChart data={stats.threatCategories} />
         </div>
 
         {/* Quick SOC Summary Card */}

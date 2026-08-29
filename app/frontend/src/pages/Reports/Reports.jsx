@@ -4,6 +4,7 @@ import {
   Download, 
   Printer, 
   FileText, 
+  FileCode,
   ShieldCheck, 
   ShieldAlert, 
   CheckCircle2,
@@ -45,25 +46,25 @@ export default function Reports() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleCSVDownload}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 hover:text-cyan-400 hover:border-cyan-500/40 text-xs font-mono font-bold transition-all flex items-center gap-2"
+              className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 hover:text-cyan-400 hover:border-cyan-500/40 text-xs font-mono font-bold transition-all flex items-center gap-2 shrink-0"
             >
-              <Download className="w-4 h-4 text-cyan-400" />
+              <Download className="w-4 h-4 text-cyan-400 shrink-0" />
               <span>Export CSV</span>
             </button>
 
             <button
               onClick={handleJSONDownload}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 hover:text-cyan-400 hover:border-cyan-500/40 text-xs font-mono font-bold transition-all flex items-center gap-2"
+              className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 hover:text-cyan-400 hover:border-cyan-500/40 text-xs font-mono font-bold transition-all flex items-center gap-2 shrink-0"
             >
-              <FileCode className="w-4 h-4 text-cyan-400" />
+              <FileCode className="w-4 h-4 text-cyan-400 shrink-0" />
               <span>Export JSON</span>
             </button>
 
             <button
               onClick={triggerPrintReport}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-slate-950 font-mono font-extrabold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-md shadow-cyan-500/20 flex items-center gap-2"
+              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-slate-950 font-mono font-extrabold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-md shadow-cyan-500/20 flex items-center gap-2 shrink-0"
             >
-              <Printer className="w-4 h-4 fill-slate-950" />
+              <Printer className="w-4 h-4 fill-slate-950 shrink-0" />
               <span>Print PDF Report</span>
             </button>
           </div>
@@ -100,28 +101,5 @@ export default function Reports() {
       {/* Full Detection Table */}
       <DetectionTable detections={history} title="Full Intrusion Detection History & Audit Trail" />
     </div>
-  );
-}
-
-// Helper icon component
-function FileCode(props) {
-  return (
-    <svg 
-      {...props} 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    >
-      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <path d="m10 13-2 2 2 2"/>
-      <path d="m14 13 2 2-2 2"/>
-    </svg>
   );
 }

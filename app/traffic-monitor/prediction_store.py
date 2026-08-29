@@ -46,6 +46,20 @@ def initialize_database():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS heuristic_alerts (
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            alert_type TEXT,
+            message TEXT,
+
+            timestamp TEXT,
+
+            source_ip TEXT
+        )
+    """)
+
     connection.commit()
     connection.close()
 
@@ -111,6 +125,47 @@ def update_prediction(
 
 
 # ------------------------------------------------------------
+# Store heuristic alert
+# ------------------------------------------------------------
+
+def insert_heuristic_alert(
+    alert_type,
+    message,
+    source_ip
+):
+
+    connection = sqlite3.connect(DATABASE_PATH)
+
+    cursor = connection.cursor()
+
+    timestamp = datetime.now().isoformat()
+
+    cursor.execute("""
+        INSERT INTO heuristic_alerts (
+
+            alert_type,
+            message,
+            timestamp,
+
+            source_ip
+
+        )
+
+        VALUES (?, ?, ?, ?)
+    """, (
+
+        alert_type,
+        message,
+        timestamp,
+
+        source_ip
+    ))
+
+    connection.commit()
+    connection.close()
+
+
+# ------------------------------------------------------------
 # Get latest prediction
 # ------------------------------------------------------------
 
@@ -154,6 +209,32 @@ def get_prediction_history(limit=100):
     cursor.execute("""
         SELECT *
         FROM predictions
+        ORDER BY id DESC
+        LIMIT ?
+    """, (limit,))
+
+    rows = cursor.fetchall()
+
+    connection.close()
+
+    return [dict(row) for row in rows]
+
+
+# ------------------------------------------------------------
+# Get heuristic alert history
+# ------------------------------------------------------------
+
+def get_heuristic_alert_history(limit=100):
+
+    connection = sqlite3.connect(DATABASE_PATH)
+
+    connection.row_factory = sqlite3.Row
+
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM heuristic_alerts
         ORDER BY id DESC
         LIMIT ?
     """, (limit,))

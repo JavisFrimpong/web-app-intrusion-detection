@@ -38,17 +38,17 @@ export default function StatusCard({ title, value, subtext, icon: Icon, color = 
       transition={{ duration: 0.2 }}
       className={`glass-panel p-5 rounded-2xl border transition-all duration-300 ${currentTheme.border} ${currentTheme.glow}`}
     >
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 font-mono">
+      <div className="flex items-start justify-between gap-2">
+        <div className="space-y-1 min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 font-mono truncate block">
             {title}
           </span>
-          <div className="flex items-baseline space-x-2">
-            <h2 className="text-2xl lg:text-3xl font-extrabold text-slate-100 tracking-tight font-sans">
+          <div className="flex flex-wrap items-baseline gap-1.5">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-100 tracking-tight font-sans truncate">
               {value}
             </h2>
             {badge && (
-              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full font-mono uppercase ${badge.className}`}>
+              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full font-mono uppercase shrink-0 ${badge.className}`}>
                 {badge.text}
               </span>
             )}
@@ -56,8 +56,8 @@ export default function StatusCard({ title, value, subtext, icon: Icon, color = 
         </div>
 
         {Icon && (
-          <div className={`p-3 rounded-xl ${currentTheme.iconBg} border border-white/5`}>
-            <Icon className="w-6 h-6" />
+          <div className={`p-2.5 rounded-xl ${currentTheme.iconBg} border border-white/5 shrink-0`}>
+            <Icon className="w-5 h-5 lg:w-6 lg:h-6 shrink-0" />
           </div>
         )}
       </div>

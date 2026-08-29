@@ -1,53 +1,99 @@
-import { useState, useEffect } from 'react';
-import { MOCK_RECENT_DETECTIONS } from '../utils/presetData';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  fetchDetectionHistory,
+  fetchTrafficStats,
+  clearDetectionHistory
+} from '../services/api';
 
-const LOCAL_STORAGE_KEY = 'ids_detection_history_v1';
+const EMPTY_STATS = {
+  metrics: { totalCount: 0, benignCount: 0, threatCount: 0, alertsCount: 0 },
+  attackDistribution: [],
+  threatCategories: [],
+  trafficTimeline: []
+};
 
-export const useDetectionHistory = () => {
-  const [history, setHistory] = useState(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse detection history from storage', e);
+/**
+ * Polls the real backend (/history + /stats) for live detection data.
+ * There is no offline fallback data here on purpose: if the backend or
+ * the flow capture engine isn't running, this hook reports that honestly
+ * via `isOnline: false` rather than inventing numbers to fill the screen.
+ */
+export const useDetectionHistory = (pollInterval = 4000) => {
+  const [history, setHistory] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [stats, setStats] = useState(EMPTY_STATS);
+  const [isOnline, setIsOnline] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Keep track of threats we've already shown alerts for in this session
+  const alertedThreatIds = useRef(new Set());
+
+  const fetchData = useCallback(async () => {
+    const [historyRes, statsRes] = await Promise.all([
+      fetchDetectionHistory(50),
+      fetchTrafficStats(),
+    ]);
+
+    if (historyRes.success && statsRes.success) {
+      setIsOnline(true);
+      setHistory(historyRes.history);
+      setAlerts(historyRes.alerts);
+      setStats(statsRes.data);
+      setLoading(false);
+
+      // Fire a toast event for any newly-seen threat in this batch
+      if (historyRes.history.length > 0) {
+        const threats = [...historyRes.history]
+          .reverse()
+          .filter(item => item.prediction !== 0);
+
+        threats.forEach(threat => {
+          if (!alertedThreatIds.current.has(threat.id)) {
+            alertedThreatIds.current.add(threat.id);
+            window.dispatchEvent(
+              new CustomEvent('ids-new-threat', { detail: threat })
+            );
+          }
+        });
       }
+    } else {
+      // Backend unreachable — report that state truthfully, no mock data.
+      setIsOnline(false);
+      setHistory([]);
+      setAlerts([]);
+      setStats(EMPTY_STATS);
+      setLoading(false);
     }
-    return MOCK_RECENT_DETECTIONS;
-  });
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
-  }, [history]);
+    fetchData();
+    if (pollInterval > 0) {
+      const interval = setInterval(fetchData, pollInterval);
+      return () => clearInterval(interval);
+    }
+  }, [fetchData, pollInterval]);
 
-  const addDetection = (newDetection) => {
-    const formattedItem = {
-      id: `DET-${Math.floor(10000 + Math.random() * 90000)}`,
-      timestamp: new Date().toISOString(),
-      sourceIp: newDetection.sourceIp || '192.168.1.' + Math.floor(2 + Math.random() * 250),
-      destIp: '10.0.0.4',
-      destPort: newDetection.destPort || newDetection.rawInputs?.Destination_Port || 80,
-      attackType: newDetection.attack_type || (newDetection.prediction === 0 ? 'BENIGN' : 'Attack'),
-      prediction: newDetection.prediction ?? (newDetection.attack_type === 'BENIGN' ? 0 : 1),
-      confidence: newDetection.confidence || 95.0,
-      protocol: newDetection.protocol || 'TCP/IP',
-      status: newDetection.prediction === 0 || newDetection.attack_type === 'BENIGN' ? 'Clean' : 'Blocked',
-    };
-
-    setHistory(prev => [formattedItem, ...prev]);
-    return formattedItem;
-  };
-
-  const clearHistory = () => {
-    setHistory(MOCK_RECENT_DETECTIONS);
+  const clearHistory = async () => {
+    if (!isOnline) return { success: false, error: 'Backend is offline.' };
+    const clearRes = await clearDetectionHistory();
+    if (clearRes.success) {
+      await fetchData();
+    }
+    return clearRes;
   };
 
   return {
     history,
-    addDetection,
+    alerts,
+    stats,
+    isOnline,
+    loading,
     clearHistory,
-    totalCount: history.length,
-    benignCount: history.filter(h => h.prediction === 0 || h.attackType === 'BENIGN').length,
-    threatCount: history.filter(h => h.prediction === 1 || h.attackType !== 'BENIGN').length,
+    totalCount: stats.metrics.totalCount,
+    benignCount: stats.metrics.benignCount,
+    threatCount: stats.metrics.threatCount,
+    alertsCount: stats.metrics.alertsCount,
+    recheckHistory: fetchData
   };
 };

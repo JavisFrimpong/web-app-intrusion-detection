@@ -51,42 +51,99 @@ print("Scaler features:", scaler.n_features_in_)
 
 def predict_flow(features):
 
+    # --------------------------------------------------------
     # Convert feature dictionary to DataFrame
+    # --------------------------------------------------------
+
     feature_df = pd.DataFrame([features])
 
-    # Make sure exactly 78 features are present
-    if feature_df.shape[1] != 78:
-        raise ValueError(
-            f"Expected 78 features, got {feature_df.shape[1]}"
+    # --------------------------------------------------------
+    # Model feature names
+    # --------------------------------------------------------
+
+    if not hasattr(model, "feature_names_in_"):
+
+        raise RuntimeError(
+            "The loaded Random Forest does not contain "
+            "training feature names."
+        )
+
+    expected_features = list(
+        model.feature_names_in_
+    )
+
+    # --------------------------------------------------------
+    # Verify feature count
+    # --------------------------------------------------------
+
+    if len(expected_features) != 78:
+
+        raise RuntimeError(
+            f"Model expects {len(expected_features)} "
+            "features instead of 78."
         )
 
     # --------------------------------------------------------
-    # Ensure feature order matches the training order
+    # Check missing features
     # --------------------------------------------------------
 
-    if hasattr(model, "feature_names_in_"):
-        feature_df = feature_df[
-            list(model.feature_names_in_)
-        ]
+    missing_features = [
+        feature
+        for feature in expected_features
+        if feature not in feature_df.columns
+    ]
+
+    if missing_features:
+
+        raise ValueError(
+            "Missing model features: "
+            + ", ".join(missing_features)
+        )
 
     # --------------------------------------------------------
-    # Scale using the SAME scaler used during training
+    # Check unexpected features
     # --------------------------------------------------------
 
-    scaled_features = scaler.transform(feature_df)
+    unexpected_features = [
+        feature
+        for feature in feature_df.columns
+        if feature not in expected_features
+    ]
+
+    if unexpected_features:
+
+        raise ValueError(
+            "Unexpected features: "
+            + ", ".join(unexpected_features)
+        )
 
     # --------------------------------------------------------
-    # Convert scaled data back to DataFrame
-    # with the original feature names
+    # EXACT TRAINING FEATURE ORDER
+    # --------------------------------------------------------
+
+    feature_df = feature_df[
+        expected_features
+    ]
+
+    # --------------------------------------------------------
+    # Scale using training scaler
+    # --------------------------------------------------------
+
+    scaled_features = scaler.transform(
+        feature_df
+    )
+
+    # --------------------------------------------------------
+    # Restore feature names after scaling
     # --------------------------------------------------------
 
     scaled_features_df = pd.DataFrame(
         scaled_features,
-        columns=feature_df.columns
+        columns=expected_features
     )
 
     # --------------------------------------------------------
-    # Make prediction
+    # Prediction
     # --------------------------------------------------------
 
     prediction = model.predict(
@@ -94,19 +151,19 @@ def predict_flow(features):
     )[0]
 
     # --------------------------------------------------------
-    # Get prediction probabilities
+    # Prediction probability
     # --------------------------------------------------------
 
     probabilities = model.predict_proba(
         scaled_features_df
     )[0]
 
-    confidence = float(
-        max(probabilities) * 100
+    confidence = (
+        float(max(probabilities)) * 100
     )
 
     # --------------------------------------------------------
-    # Convert encoded label to attack name
+    # Attack name
     # --------------------------------------------------------
 
     attack_type = label_mapping_dict.get(
@@ -117,6 +174,8 @@ def predict_flow(features):
     return {
         "prediction": int(prediction),
         "attack_type": attack_type,
-        "confidence": round(confidence, 2)
+        "confidence": round(
+            confidence,
+            2
+        )
     }
-

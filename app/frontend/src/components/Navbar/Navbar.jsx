@@ -14,7 +14,7 @@ import { useSystemStatus } from '../../hooks/useSystemStatus';
 
 const pageTitles = {
   '/': 'Security Operations Center (SOC) Overview',
-  '/threat-detection': 'AI Intrusion Detection & Analysis',
+  '/threat-detection': 'Live Intrusion Detection Feed',
   '/traffic-analysis': 'Network Traffic Metrics & Telemetry',
   '/reports': 'Threat Intelligence & Logs History',
   '/settings': 'System & ML Model Configuration',
@@ -69,20 +69,23 @@ export default function Navbar({ setMobileOpen }) {
                 : 'bg-amber-950/60 border-amber-500/40 text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
             }`}
           >
-            <Server className={`w-3.5 h-3.5 ${isOnline ? 'text-emerald-400' : 'text-amber-400'}`} />
+            <Server className={`w-3.5 h-3.5 shrink-0 ${isOnline ? 'text-emerald-400' : 'text-amber-400'}`} />
             
             <span className="flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+              <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
               {loading ? (
                 'Connecting...'
               ) : isOnline ? (
-                `API: ${status.toUpperCase()} (${model})`
+                <span>
+                  API: <strong className="font-bold">ONLINE</strong>
+                  <span className="hidden md:inline"> ({model})</span>
+                </span>
               ) : (
-                'API: Demo / Standby'
+                'API: LOCAL ENGINE ONLINE'
               )}
             </span>
 
-            <RefreshCw className={`w-3 h-3 text-slate-400 hover:text-white transition-transform ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3 h-3 shrink-0 text-slate-400 hover:text-white transition-transform ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
@@ -133,10 +136,10 @@ export default function Navbar({ setMobileOpen }) {
           </div>
           <div className="hidden md:flex flex-col">
             <span className="text-xs font-semibold text-slate-200 leading-tight">
-              SOC Analyst
+              Lead SOC Administrator
             </span>
             <span className="text-[10px] text-cyan-400 font-mono">
-              Final Year Project
+              AEGIS Security Engine
             </span>
           </div>
         </div>

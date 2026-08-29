@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Default API Base URL as per requirements
+// Default API Base URL
 const DEFAULT_BASE_URL = 'http://127.0.0.1:5000/api';
 
 export const getStoredApiUrl = () => {
@@ -39,7 +39,7 @@ export const fetchSystemStatus = async () => {
       isOnline: true,
     };
   } catch (error) {
-    console.warn('Backend API connection failed, using fallback status:', error.message);
+    console.warn('Backend API connection failed:', error.message);
     return {
       success: false,
       error: error.message,
@@ -55,82 +55,77 @@ export const fetchSystemStatus = async () => {
 };
 
 /**
- * Send Network Traffic Data for ML Prediction
- * Endpoint: POST /predict
- * Expected response: { prediction: 0|1, attack_type: "BENIGN" | "DoS", confidence: number }
+ * Fetch captured network traffic flow history from backend database.
+ * This is real data written by the flow capture engine (flow_monitor.py)
+ * as it processes live packets — every row here corresponds to an
+ * actual flow that was sniffed, feature-extracted, and classified.
+ * Endpoint: GET /history
  */
-export const predictTrafficData = async (trafficData) => {
+export const fetchDetectionHistory = async (limit = 100) => {
   const api = createApiClient();
   try {
-    const response = await api.post('/predict', trafficData);
+    const response = await api.get(`/history?limit=${limit}`);
+    return {
+      success: true,
+      history: response.data.history || [],
+      alerts: response.data.alerts || [],
+      isOnline: true,
+    };
+  } catch (error) {
+    console.warn('Backend API history fetch failed:', error.message);
+    return {
+      success: false,
+      error: error.message,
+      history: [],
+      alerts: [],
+      isOnline: false,
+    };
+  }
+};
+
+/**
+ * Fetch aggregated traffic telemetry stats for dashboard visual charts.
+ * Computed server-side directly from the predictions table.
+ * Endpoint: GET /stats
+ */
+export const fetchTrafficStats = async () => {
+  const api = createApiClient();
+  try {
+    const response = await api.get('/stats');
     return {
       success: true,
       data: response.data,
       isOnline: true,
     };
   } catch (error) {
-    console.warn('Backend API prediction request failed, generating intelligent simulation fallback:', error.message);
-    
-    // Simulate fallback logic if Flask server is not running during local testing
-    const simulatedResult = generateSimulatedPrediction(trafficData);
-    
+    console.warn('Backend API stats fetch failed:', error.message);
     return {
-      success: true,
-      data: simulatedResult,
+      success: false,
+      error: error.message,
       isOnline: false,
-      simulated: true,
-      message: 'Result generated via local fallback classifier (Flask server unreachable)',
     };
   }
 };
 
 /**
- * Helper to generate realistic predictions based on traffic features for offline demo mode
+ * Clear all stored predictions and alerts from backend database.
+ * Endpoint: POST /history/clear
  */
-function generateSimulatedPrediction(trafficData) {
-  // Simple heuristic checks on trafficData inputs if provided
-  const dstPort = parseInt(trafficData?.Destination_Port || trafficData?.dst_port || 80, 10);
-  const flowDuration = parseFloat(trafficData?.Flow_Duration || 5000);
-  const pktLenMean = parseFloat(trafficData?.Packet_Length_Mean || 350);
-  const synCount = parseInt(trafficData?.SYN_Flag_Count || 0, 10);
-  const presetType = trafficData?._presetType;
-
-  if (presetType === 'dos' || synCount > 50 || (flowDuration > 100000 && pktLenMean > 1200)) {
+export const clearDetectionHistory = async () => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/history/clear');
     return {
-      prediction: 1,
-      attack_type: 'DoS / DDoS SYN Flood',
-      confidence: 96.42,
+      success: true,
+      message: response.data.message || 'History cleared.',
+      isOnline: true,
     };
-  } else if (presetType === 'portscan' || dstPort === 22 || dstPort === 3389 || (trafficData?.Total_Fwd_Packets > 200 && dstPort > 10000)) {
+  } catch (error) {
+    console.error('Backend API history clear failed:', error.message);
     return {
-      prediction: 1,
-      attack_type: 'PortScan Probe',
-      confidence: 94.18,
-    };
-  } else if (presetType === 'sql_injection' || presetType === 'web_attack') {
-    return {
-      prediction: 1,
-      attack_type: 'Web Attack - SQL Injection',
-      confidence: 98.75,
-    };
-  } else if (presetType === 'bruteforce') {
-    return {
-      prediction: 1,
-      attack_type: 'Brute Force (SSH/FTP)',
-      confidence: 91.30,
-    };
-  } else if (presetType === 'botnet') {
-    return {
-      prediction: 1,
-      attack_type: 'Botnet Command & Control',
-      confidence: 89.65,
+      success: false,
+      error: error.message,
+      isOnline: false,
     };
   }
-
-  // Default Benign traffic prediction
-  return {
-    prediction: 0,
-    attack_type: 'BENIGN',
-    confidence: Number((84 + Math.random() * 14).toFixed(2)),
-  };
-}
+};
