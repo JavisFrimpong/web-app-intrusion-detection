@@ -4,6 +4,8 @@ import {
   ShieldCheck, 
   ShieldAlert, 
   Activity, 
+  Cpu, 
+  Server, 
   TrendingUp, 
   ArrowRight,
   Database,
@@ -46,7 +48,7 @@ export default function Dashboard() {
           <div className="space-y-1.5 max-w-2xl">
             <div className="flex items-center space-x-2">
               <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono">
-                ENTERPRISE SOC MONITORING
+                ENTERPRISE SOC PROTECTION
               </span>
               <span className="text-slate-500 text-xs">•</span>
               <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
@@ -59,7 +61,7 @@ export default function Dashboard() {
             </h1>
 
             <p className="text-xs sm:text-sm text-slate-400 font-sans leading-relaxed">
-              Real-time monitoring that automatically detects and alerts you to <strong className="text-cyan-400 font-mono">DDoS attacks, port scans, and intrusion attempts</strong> as they happen on your website.
+              Real-time anomaly detection and web attack classification powered by a trained <strong className="text-cyan-400 font-mono">Random Forest ML model</strong> connected to production API engine.
             </p>
           </div>
 
@@ -77,35 +79,39 @@ export default function Dashboard() {
       {/* Top 6 SOC Status Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatusCard
-          title="Monitoring Status"
+          title="System Status"
           value={status === 'active' || isApiConnected ? 'ACTIVE' : 'STANDBY'}
-          subtext="Watching 24/7"
+          subtext="IDS Shield Enabled"
           icon={ShieldCheck}
           color="emerald"
           badge={{
-            text: 'LIVE MONITORING',
+            text: 'LIVE PROTECTION',
             className: 'bg-emerald-500/20 text-emerald-300'
           }}
         />
 
         <StatusCard
-          title="Response Time"
-          value="< 10ms"
-          subtext="Real-Time Analysis"
-          icon={Zap}
+          title="ML Model"
+          value="Random Forest"
+          subtext="CICIDS2017 Trained"
+          icon={Cpu}
           color="cyan"
           badge={{
-            text: 'INSTANT',
+            text: 'RF-80',
             className: 'bg-cyan-500/20 text-cyan-300'
           }}
         />
 
         <StatusCard
-          title="Attack Coverage"
-          value="6+ Types"
-          subtext="Detects DDoS, PortScan, SQLi & more"
-          icon={Lock}
-          color="blue"
+          title="API Connection"
+          value={isApiConnected ? 'Connected' : 'Offline'}
+          subtext="http://127.0.0.1:5000"
+          icon={Server}
+          color={isApiConnected ? 'blue' : 'red'}
+          badge={{
+            text: isApiConnected ? '200 OK' : 'UNREACHABLE',
+            className: isApiConnected ? 'bg-blue-500/20 text-blue-300' : 'bg-red-500/20 text-red-300'
+          }}
         />
 
         <StatusCard

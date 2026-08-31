@@ -54,7 +54,7 @@ export default function ThreatAlertToast() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
               </span>
               <span className="text-[9px] font-mono text-rose-400 font-bold uppercase tracking-wider">
-                LIVE BLOCK
+                LIVE DETECTION
               </span>
             </div>
 
@@ -65,7 +65,7 @@ export default function ThreatAlertToast() {
 
               <div className="space-y-1 pr-6 flex-1">
                 <h4 className="text-xs font-mono font-black text-rose-400 uppercase tracking-wide">
-                  Intrusion Vector Blocked
+                  Suspicious Activity Detected
                 </h4>
                 <div className="text-sm font-extrabold text-slate-100 leading-tight">
                   {toast.attackType}
