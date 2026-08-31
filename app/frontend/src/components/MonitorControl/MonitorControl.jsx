@@ -37,12 +37,12 @@ export default function MonitorControl() {
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-100">
-              {checking ? 'Checking protection status…' : running ? 'Protection is ON' : 'Protection is OFF'}
+              {checking ? 'Checking monitoring status…' : running ? 'Monitoring is ON' : 'Monitoring is OFF'}
             </h3>
             <p className="text-xs text-slate-400 font-sans">
               {running
                 ? `Watching ${target ? target : 'all traffic on this server'}${uptimeSeconds != null ? ` — running for ${formatUptime(uptimeSeconds)}` : ''}.`
-                : 'Enter your website address below, then turn protection on.'}
+                : 'Enter your website address below, then turn monitoring on.'}
             </p>
           </div>
         </div>
@@ -67,7 +67,7 @@ export default function MonitorControl() {
             className="px-5 py-2.5 rounded-xl font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-40 shrink-0 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 hover:brightness-110"
           >
             {actionPending ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Play className="w-4 h-4 shrink-0" />}
-            <span>{actionPending ? 'Starting…' : 'Start Protection'}</span>
+            <span>{actionPending ? 'Starting…' : 'Start Monitoring'}</span>
           </button>
         </div>
       )}
@@ -79,12 +79,12 @@ export default function MonitorControl() {
           className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-40 bg-slate-900 border border-rose-500/40 text-rose-300 hover:bg-rose-950/40"
         >
           {actionPending ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Square className="w-4 h-4 shrink-0" />}
-          <span>{actionPending ? 'Stopping…' : 'Stop Protection'}</span>
+          <span>{actionPending ? 'Stopping…' : 'Stop Monitoring'}</span>
         </button>
       )}
 
       {!backendReachable && (
-        <p className="text-[11px] text-amber-400 font-mono">Can't reach the server to check protection status.</p>
+        <p className="text-[11px] text-amber-400 font-mono">Can't reach the server to check monitoring status.</p>
       )}
       {error && (
         <div className="p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/30 text-xs text-rose-300 flex items-center gap-2">

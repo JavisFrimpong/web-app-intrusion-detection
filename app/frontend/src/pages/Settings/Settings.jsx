@@ -12,7 +12,9 @@ import {
   ShieldCheck,
   Moon,
   Laptop,
-  Trash2
+  Trash2,
+  Wrench,
+  Wifi
 } from 'lucide-react';
 import { getStoredApiUrl, setStoredApiUrl, fetchSystemStatus } from '../../services/api';
 import { useSystemStatus } from '../../hooks/useSystemStatus';
@@ -22,11 +24,12 @@ export default function Settings() {
   const [apiUrlInput, setApiUrlInput] = useState(getStoredApiUrl());
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('cyber-dark');
   const [clearResult, setClearResult] = useState(null);
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-  const { recheckStatus } = useSystemStatus();
+  const { recheckStatus, isOnline: isApiOnline } = useSystemStatus();
   const { isOnline: isDbOnline, clearHistory, totalCount } = useDetectionHistory(0);
 
   const handleSaveApiUrl = async (e) => {
@@ -88,89 +91,75 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Backend API Configuration */}
+      {/* Backend API Connection — read-only by default, no route map exposed */}
       <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 space-y-4">
-        <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
-          <Server className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-base font-bold text-slate-100">
-            Backend REST API Connection
-          </h2>
+        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div className="flex items-center space-x-2">
+            <Server className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-base font-bold text-slate-100">
+              Backend Connection
+            </h2>
+          </div>
+          <button
+            onClick={() => setShowAdvanced(v => !v)}
+            className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 hover:text-cyan-400 transition-colors"
+          >
+            <Wrench className="w-3.5 h-3.5" />
+            <span>{showAdvanced ? 'Hide advanced' : 'Advanced'}</span>
+          </button>
         </div>
 
-        <form onSubmit={handleSaveApiUrl} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-mono text-slate-300">
-              Flask API Base URL
-            </label>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <input
-                type="text"
-                value={apiUrlInput}
-                onChange={(e) => setApiUrlInput(e.target.value)}
-                placeholder="http://127.0.0.1:5000/api"
-                className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500/50"
-              />
-              <button
-                type="submit"
-                disabled={testing}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-slate-950 font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-md shadow-cyan-500/20 flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
-              >
-                {testing ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                <span>Save & Ping</span>
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-400 font-mono">
-              Default Flask REST API URL specified in project requirements: <code className="text-cyan-400">http://127.0.0.1:5000/api</code>
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg border ${isApiOnline ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
+            <Wifi className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-200">
+              {isApiOnline ? 'Connected' : 'Not connected'}
+            </p>
+            <p className="text-[11px] text-slate-500 font-mono">
+              {isApiOnline ? 'The dashboard is receiving live data from the server.' : 'Make sure the backend is running.'}
             </p>
           </div>
-
-          {testResult && (
-            <div className={`p-3 rounded-xl border text-xs font-mono flex items-center space-x-2 ${
-              testResult.success 
-                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' 
-                : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
-            }`}>
-              {testResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" /> : <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />}
-              <span>{testResult.message}</span>
-            </div>
-          )}
-        </form>
-
-        {/* API Endpoint Documentation Quick Spec */}
-        <div className="pt-2">
-          <span className="text-xs font-mono text-slate-400 block mb-2 font-bold uppercase">
-            Endpoints This Dashboard Actually Calls
-          </span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
-            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-              <span className="text-emerald-400 font-bold">GET /status</span>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Polled by the navbar connection badge. Confirms the API and model are up.
-              </p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-              <span className="text-cyan-400 font-bold">GET /history</span>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Real captured flows and heuristic alerts, read directly from predictions.db.
-              </p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-              <span className="text-cyan-400 font-bold">GET /stats</span>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Aggregated counts and chart data computed server-side from the same table.
-              </p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-              <span className="text-rose-400 font-bold">POST /history/clear</span>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Wipes stored predictions and alerts. Used by "Clear Detection History" below.
-              </p>
-            </div>
-          </div>
         </div>
+
+        {showAdvanced && (
+          <form onSubmit={handleSaveApiUrl} className="space-y-3 pt-2 border-t border-slate-800/80">
+            <div className="space-y-1.5">
+              <label className="text-xs font-mono text-slate-300">
+                Backend Server Address (developer setting — leave as default unless you know why you're changing it)
+              </label>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <input
+                  type="text"
+                  value={apiUrlInput}
+                  onChange={(e) => setApiUrlInput(e.target.value)}
+                  placeholder="http://127.0.0.1:5000/api"
+                  className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500/50"
+                />
+                <button
+                  type="submit"
+                  disabled={testing}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-slate-950 font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-md shadow-cyan-500/20 flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
+                >
+                  {testing ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
+                  <span>Save & Test</span>
+                </button>
+              </div>
+            </div>
+
+            {testResult && (
+              <div className={`p-3 rounded-xl border text-xs font-mono flex items-center space-x-2 ${
+                testResult.success 
+                  ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' 
+                  : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
+              }`}>
+                {testResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" /> : <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />}
+                <span>{testResult.message}</span>
+              </div>
+            )}
+          </form>
+        )}
       </div>
 
       {/* Data Management: real, destructive action wired to /history/clear */}

@@ -8,9 +8,11 @@ import {
   CheckCircle2, 
   AlertTriangle,
   UserCheck,
-  ShieldCheck
+  ShieldCheck,
+  LogOut
 } from 'lucide-react';
 import { useSystemStatus } from '../../hooks/useSystemStatus';
+import { getStoredUser, logoutUser } from '../../services/authService';
 
 const pageTitles = {
   '/': 'Security Operations Center (SOC) Overview',
@@ -25,6 +27,7 @@ export default function Navbar({ setMobileOpen }) {
   const currentPageTitle = pageTitles[location.pathname] || 'Dashboard';
   const { isOnline, model, status, loading, recheckStatus } = useSystemStatus(15000);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const currentUser = getStoredUser();
 
   const notifications = [
     { id: 1, title: 'SYN Flood Detected', time: '2 mins ago', type: 'critical' },
@@ -129,19 +132,27 @@ export default function Navbar({ setMobileOpen }) {
           )}
         </div>
 
-        {/* User Profile Avatar */}
+        {/* User Profile & Sign Out Button */}
         <div className="flex items-center space-x-2.5 pl-2 border-l border-slate-800">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white border border-cyan-400/30 shadow-md">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white border border-cyan-400/30 shadow-md shrink-0">
             <UserCheck className="w-4 h-4" />
           </div>
-          <div className="hidden md:flex flex-col">
-            <span className="text-xs font-semibold text-slate-200 leading-tight">
-              Lead SOC Administrator
+          <div className="hidden md:flex flex-col min-w-0 max-w-[120px]">
+            <span className="text-xs font-semibold text-slate-200 leading-tight truncate">
+              {currentUser?.name || 'SOC Client'}
             </span>
-            <span className="text-[10px] text-cyan-400 font-mono">
-              AEGIS Security Engine
+            <span className="text-[10px] text-cyan-400 font-mono truncate">
+              {currentUser?.company || 'Enterprise Partner'}
             </span>
           </div>
+
+          <button
+            onClick={logoutUser}
+            title="Sign Out of AEGIS Console"
+            className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-500/40 transition-colors shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
 
       </div>
