@@ -11,17 +11,23 @@ import {
   Sliders, 
   ShieldCheck,
   Moon,
-  Laptop
+  Laptop,
+  Trash2
 } from 'lucide-react';
 import { getStoredApiUrl, setStoredApiUrl, fetchSystemStatus } from '../../services/api';
 import { useSystemStatus } from '../../hooks/useSystemStatus';
+import { useDetectionHistory } from '../../hooks/useDetectionHistory';
 
 export default function Settings() {
   const [apiUrlInput, setApiUrlInput] = useState(getStoredApiUrl());
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('cyber-dark');
+  const [clearResult, setClearResult] = useState(null);
+  const [clearing, setClearing] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const { recheckStatus } = useSystemStatus();
+  const { isOnline: isDbOnline, clearHistory, totalCount } = useDetectionHistory(0);
 
   const handleSaveApiUrl = async (e) => {
     e.preventDefault();
@@ -41,9 +47,26 @@ export default function Settings() {
     } else {
       setTestResult({
         success: false,
-        message: `Could not connect to Flask API at ${apiUrlInput}. Running in local simulation mode.`,
+        message: `Could not connect to Flask API at ${apiUrlInput}. Check that the backend server is running.`,
       });
     }
+  };
+
+  const handleClearHistory = async () => {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      return;
+    }
+    setClearing(true);
+    setClearResult(null);
+    const res = await clearHistory();
+    setClearing(false);
+    setConfirmClear(false);
+    setClearResult(
+      res.success
+        ? { success: true, message: 'All stored predictions and alerts were cleared from the database.' }
+        : { success: false, message: res.error || 'Failed to clear history — backend may be offline.' }
+    );
   };
 
   return (
@@ -79,7 +102,7 @@ export default function Settings() {
             <label className="text-xs font-mono text-slate-300">
               Flask API Base URL
             </label>
-            <div className="flex items-center space-x-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <input
                 type="text"
                 value={apiUrlInput}
@@ -90,9 +113,9 @@ export default function Settings() {
               <button
                 type="submit"
                 disabled={testing}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-slate-950 font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-md shadow-cyan-500/20 flex items-center gap-2 disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-slate-950 font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-md shadow-cyan-500/20 flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
               >
-                {testing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                {testing ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
                 <span>Save & Ping</span>
               </button>
             </div>
@@ -116,24 +139,85 @@ export default function Settings() {
         {/* API Endpoint Documentation Quick Spec */}
         <div className="pt-2">
           <span className="text-xs font-mono text-slate-400 block mb-2 font-bold uppercase">
-            Configured Flask REST API Endpoints
+            Endpoints This Dashboard Actually Calls
           </span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
             <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
               <span className="text-emerald-400 font-bold">GET /status</span>
               <p className="text-[11px] text-slate-400 mt-1">
-                Returns: <code className="text-slate-300">&#123;"model":"Random Forest", "system":"Intrusion Detection System", "status":"active"&#125;</code>
+                Polled by the navbar connection badge. Confirms the API and model are up.
               </p>
             </div>
 
             <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
-              <span className="text-cyan-400 font-bold">POST /predict</span>
+              <span className="text-cyan-400 font-bold">GET /history</span>
               <p className="text-[11px] text-slate-400 mt-1">
-                Returns: <code className="text-slate-300">&#123;"prediction":0, "attack_type":"BENIGN", "confidence":86.06&#125;</code>
+                Real captured flows and heuristic alerts, read directly from predictions.db.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+              <span className="text-cyan-400 font-bold">GET /stats</span>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Aggregated counts and chart data computed server-side from the same table.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+              <span className="text-rose-400 font-bold">POST /history/clear</span>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Wipes stored predictions and alerts. Used by "Clear Detection History" below.
               </p>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Data Management: real, destructive action wired to /history/clear */}
+      <div className="glass-panel p-6 rounded-2xl border border-rose-500/20 space-y-4">
+        <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
+          <Trash2 className="w-5 h-5 text-rose-400" />
+          <h2 className="text-base font-bold text-slate-100">
+            Data Management
+          </h2>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-slate-200 font-semibold">Clear Detection History</p>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">
+              Permanently deletes all {totalCount} stored predictions and heuristic alerts from predictions.db.
+              This cannot be undone.
+            </p>
+          </div>
+          <button
+            onClick={handleClearHistory}
+            disabled={!isDbOnline || clearing}
+            className={`px-5 py-2.5 rounded-xl font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-40 shrink-0 ${
+              confirmClear
+                ? 'bg-rose-600 text-white hover:bg-rose-500'
+                : 'bg-slate-900 border border-rose-500/40 text-rose-300 hover:bg-rose-950/40'
+            }`}
+          >
+            {clearing ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Trash2 className="w-4 h-4 shrink-0" />}
+            <span>{confirmClear ? 'Confirm: Delete Everything' : 'Clear Detection History'}</span>
+          </button>
+        </div>
+
+        {!isDbOnline && (
+          <p className="text-[11px] text-amber-400 font-mono">Backend offline — reconnect before clearing history.</p>
+        )}
+
+        {clearResult && (
+          <div className={`p-3 rounded-xl border text-xs font-mono flex items-center space-x-2 ${
+            clearResult.success
+              ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+              : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
+          }`}>
+            {clearResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" /> : <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />}
+            <span>{clearResult.message}</span>
+          </div>
+        )}
       </div>
 
       {/* Machine Learning Model Specifications */}
@@ -166,20 +250,20 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Project & Developer Info (Final Year Project Showcase) */}
+      {/* Project & Developer Info */}
       <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 space-y-4">
         <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
           <Database className="w-5 h-5 text-cyan-400" />
           <h2 className="text-base font-bold text-slate-100">
-            Project & Developer Information
+            AEGIS Enterprise System Architecture
           </h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-200">Project Overview</h3>
+            <h3 className="text-sm font-bold text-slate-200">System Overview</h3>
             <p className="text-xs text-slate-400 leading-relaxed font-sans">
-              This application is an AI-powered Intrusion Detection System (IDS) that detects malicious web network traffic using a Random Forest machine learning model trained on the CICIDS2017 dataset. Built as a university Final Year Project demonstration.
+              AEGIS is an enterprise AI-powered Intrusion Detection & Prevention System (IDS/IPS) that monitors and detects malicious web network traffic using a high-accuracy Random Forest machine learning model trained on the benchmark CICIDS2017 dataset. Built for real-time production threat analysis and Security Operations Center (SOC) telemetry monitoring.
             </p>
           </div>
 

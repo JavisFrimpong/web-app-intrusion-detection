@@ -16,7 +16,7 @@ export default function Footer() {
               Machine Learning-Based Intrusion Detection System
             </p>
             <p className="text-[11px] text-slate-500 font-mono">
-              University Final Year Project · Random Forest Classifier · CICIDS2017 Dataset
+              AEGIS Enterprise Security Operations Center · Random Forest Classifier · CICIDS2017 Dataset
             </p>
           </div>
         </div>

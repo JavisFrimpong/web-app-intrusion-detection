@@ -30,3 +30,6 @@ app/traffic-monitor/venv/
 
 # Traffic monitor runtime database
 app/traffic-monitor/predictions.db
+
+# Traffic monitor backup
+app/traffic-monitor/flow_capture_backup.py

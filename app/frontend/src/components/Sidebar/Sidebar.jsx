@@ -16,7 +16,7 @@ import { motion } from 'framer-motion';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/threat-detection', label: 'Threat Detection', icon: ShieldAlert, badge: 'Live' },
+  { path: '/threat-detection', label: 'Live Detections', icon: ShieldAlert, badge: 'Live' },
   { path: '/traffic-analysis', label: 'Traffic Analysis', icon: Activity },
   { path: '/reports', label: 'Reports & Logs', icon: FileSpreadsheet },
   { path: '/settings', label: 'Settings', icon: Settings },
@@ -154,10 +154,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]" />
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-medium text-slate-200 truncate">
-                  Final Year Project
+                  AEGIS Security Engine
                 </span>
                 <span className="text-[10px] text-slate-400 truncate font-mono">
-                  Web App Security SOC
+                  Enterprise Production SOC
                 </span>
               </div>
             </div>

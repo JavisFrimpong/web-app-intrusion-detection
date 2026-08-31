@@ -13,15 +13,19 @@ import {
 import TrafficLineChart from '../../components/Charts/TrafficLineChart';
 import AttackPieChart from '../../components/Charts/AttackPieChart';
 import ThreatCategoryBarChart from '../../components/Charts/ThreatCategoryBarChart';
-import { 
-  MOCK_TRAFFIC_TIMELINE, 
-  MOCK_ATTACK_DISTRIBUTION, 
-  MOCK_THREAT_CATEGORIES 
-} from '../../utils/presetData';
+import { useDetectionHistory } from '../../hooks/useDetectionHistory';
 
 export default function TrafficAnalysis() {
   const [timeframe, setTimeframe] = useState('24h'); // '1h' | '24h' | '7d'
   const [liveStreamActive, setLiveStreamActive] = useState(true);
+
+  // Connect polling rate directly to user stream toggle controls
+  const { stats, history, isOnline } = useDetectionHistory(liveStreamActive ? 4000 : 0);
+
+  const { totalCount, benignCount, threatCount, alertsCount } = stats.metrics;
+  const benignRate = totalCount > 0 ? ((benignCount / totalCount) * 100).toFixed(1) : '0.0';
+  const threatRate = totalCount > 0 ? ((threatCount / totalCount) * 100).toFixed(1) : '0.0';
+  const distinctPorts = [...new Set(history.map(h => h.destPort).filter(Boolean))];
 
   return (
     <div className="space-y-6">
@@ -71,44 +75,49 @@ export default function TrafficAnalysis() {
         </div>
       </div>
 
-      {/* Traffic Summary Metrics */}
+      {/* Traffic Summary Metrics — derived from real captured flows */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 space-y-1">
-          <span className="text-[11px] text-slate-400 uppercase">Avg Flow Duration</span>
+          <span className="text-[11px] text-slate-400 uppercase">Total Flows Captured</span>
           <div className="text-xl font-bold text-slate-100 flex items-center justify-between">
-            <span>3,420 ms</span>
+            <span>{totalCount.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 space-y-1">
+          <span className="text-[11px] text-slate-400 uppercase">Benign Rate</span>
+          <div className="text-xl font-bold text-slate-100 flex items-center justify-between">
+            <span>{benignRate}%</span>
             <span className="text-xs text-emerald-400 font-normal flex items-center">
-              <ArrowDownRight className="w-3.5 h-3.5" /> -4.2%
+              <ArrowUpRight className="w-3.5 h-3.5" />
             </span>
           </div>
         </div>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 space-y-1">
-          <span className="text-[11px] text-slate-400 uppercase">Flow Bytes / Sec</span>
+          <span className="text-[11px] text-slate-400 uppercase">Threat Rate</span>
           <div className="text-xl font-bold text-slate-100 flex items-center justify-between">
-            <span>428.5 KB/s</span>
-            <span className="text-xs text-emerald-400 font-normal flex items-center">
-              <ArrowUpRight className="w-3.5 h-3.5" /> +12.4%
+            <span>{threatRate}%</span>
+            <span className="text-xs text-rose-400 font-normal flex items-center">
+              <ArrowDownRight className="w-3.5 h-3.5" />
             </span>
           </div>
         </div>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 space-y-1">
-          <span className="text-[11px] text-slate-400 uppercase">Packets / Sec</span>
+          <span className="text-[11px] text-slate-400 uppercase">Distinct Dest. Ports Seen</span>
           <div className="text-xl font-bold text-slate-100 flex items-center justify-between">
-            <span>1,840 pkt/s</span>
-            <span className="text-xs text-cyan-400 font-normal">Normal</span>
-          </div>
-        </div>
-
-        <div className="glass-panel p-4 rounded-2xl border border-slate-800/80 space-y-1">
-          <span className="text-[11px] text-slate-400 uppercase">Active Port Channels</span>
-          <div className="text-xl font-bold text-slate-100 flex items-center justify-between">
-            <span>80, 443, 22</span>
-            <span className="text-xs text-slate-400 font-normal">HTTP/SSH</span>
+            <span>{distinctPorts.length}</span>
+            <span className="text-xs text-slate-400 font-normal">{alertsCount} alerts</span>
           </div>
         </div>
       </div>
+
+      {!isOnline && (
+        <p className="text-xs text-amber-400 font-mono -mt-2">
+          Backend unreachable — figures above will read zero until the API and capture engine are running.
+        </p>
+      )}
 
       {/* Main Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -123,7 +132,7 @@ export default function TrafficAnalysis() {
               </p>
             </div>
           </div>
-          <TrafficLineChart data={MOCK_TRAFFIC_TIMELINE} />
+          <TrafficLineChart data={stats.trafficTimeline} />
         </div>
 
         <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 space-y-3">
@@ -135,7 +144,7 @@ export default function TrafficAnalysis() {
               Categorical proportion of captured flow samples
             </p>
           </div>
-          <AttackPieChart data={MOCK_ATTACK_DISTRIBUTION} />
+          <AttackPieChart data={stats.attackDistribution} />
         </div>
       </div>
 
@@ -151,7 +160,7 @@ export default function TrafficAnalysis() {
             </p>
           </div>
         </div>
-        <ThreatCategoryBarChart data={MOCK_THREAT_CATEGORIES} />
+        <ThreatCategoryBarChart data={stats.threatCategories} />
       </div>
     </div>
   );

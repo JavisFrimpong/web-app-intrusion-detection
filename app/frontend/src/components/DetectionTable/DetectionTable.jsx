@@ -9,7 +9,7 @@ import {
   Download,
   Clock
 } from 'lucide-react';
-import { formatTimestamp, formatConfidence } from '../../utils/formatters';
+import { formatTimestamp, formatConfidence, getPlainSummary } from '../../utils/formatters';
 import { exportToCSV } from '../../utils/reportExporter';
 
 export default function DetectionTable({ detections = [], limit = null, title = "Recent Detections History" }) {
@@ -55,16 +55,16 @@ export default function DetectionTable({ detections = [], limit = null, title = 
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Search Box */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="relative flex-1 sm:flex-initial">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0" />
             <input
               type="text"
               placeholder="Search IP, ID, Attack..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 w-44 lg:w-56 font-mono"
+              className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 sm:w-44 lg:w-56 font-mono"
             />
           </div>
 
@@ -83,9 +83,9 @@ export default function DetectionTable({ detections = [], limit = null, title = 
             <button
               onClick={handleExportCSV}
               title="Export filtered logs to CSV"
-              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 transition-colors"
+              className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 transition-colors shrink-0"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-4 h-4 shrink-0" />
             </button>
           )}
         </div>
@@ -138,9 +138,14 @@ export default function DetectionTable({ detections = [], limit = null, title = 
                         ) : (
                           <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
                         )}
-                        <span className={`font-semibold ${isBenign ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {item.attackType}
-                        </span>
+                        <div>
+                          <span className={`font-semibold ${isBenign ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {item.attackType}
+                          </span>
+                          <p className="text-[10px] text-slate-500 font-sans mt-0.5">
+                            {getPlainSummary(item.attackType)}
+                          </p>
+                        </div>
                       </div>
                     </td>
 
