@@ -9,7 +9,7 @@ import {
   Download,
   Clock
 } from 'lucide-react';
-import { formatTimestamp, formatConfidence } from '../../utils/formatters';
+import { formatTimestamp, formatConfidence, getPlainSummary } from '../../utils/formatters';
 import { exportToCSV } from '../../utils/reportExporter';
 
 export default function DetectionTable({ detections = [], limit = null, title = "Recent Detections History" }) {
@@ -138,9 +138,14 @@ export default function DetectionTable({ detections = [], limit = null, title = 
                         ) : (
                           <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
                         )}
-                        <span className={`font-semibold ${isBenign ? 'text-emerald-400' : 'text-rose-400'}`}>
-                          {item.attackType}
-                        </span>
+                        <div>
+                          <span className={`font-semibold ${isBenign ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {item.attackType}
+                          </span>
+                          <p className="text-[10px] text-slate-500 font-sans mt-0.5">
+                            {getPlainSummary(item.attackType)}
+                          </p>
+                        </div>
                       </div>
                     </td>
 

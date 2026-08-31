@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useDetectionHistory } from '../../hooks/useDetectionHistory';
 import DetectionTable from '../../components/DetectionTable/DetectionTable';
+import MonitorControl from '../../components/MonitorControl/MonitorControl';
 
 export default function ThreatDetection() {
   const { history, alerts, stats, isOnline, loading, recheckHistory } = useDetectionHistory(4000);
@@ -42,6 +43,9 @@ export default function ThreatDetection() {
           </button>
         </div>
       </div>
+
+      {/* Start / Stop control — the client's replacement for running flow_monitor.py by hand */}
+      <MonitorControl />
 
       {/* Offline / no-capture-running banner */}
       {!isOnline && (

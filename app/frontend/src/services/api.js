@@ -108,6 +108,49 @@ export const fetchTrafficStats = async () => {
 };
 
 /**
+ * Check whether the flow capture engine is currently running on the server.
+ * Endpoint: GET /monitor/status
+ */
+export const fetchMonitorStatus = async () => {
+  const api = createApiClient();
+  try {
+    const response = await api.get('/monitor/status');
+    return { success: true, data: response.data, isOnline: true };
+  } catch (error) {
+    return { success: false, error: error.message, isOnline: false, data: { running: false } };
+  }
+};
+
+/**
+ * Start the flow capture engine (flow_capture.py) as a background process
+ * on the server. If a target (domain, URL, or IP) is provided, capture is
+ * scoped to just that target's traffic instead of everything on the host.
+ * Endpoint: POST /monitor/start
+ */
+export const startMonitoring = async (target = '') => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/monitor/start', { target });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
+/**
+ * Stop the flow capture engine. Endpoint: POST /monitor/stop
+ */
+export const stopMonitoring = async () => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/monitor/stop');
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
+/**
  * Clear all stored predictions and alerts from backend database.
  * Endpoint: POST /history/clear
  */

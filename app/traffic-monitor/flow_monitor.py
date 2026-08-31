@@ -1,3 +1,5 @@
+import os
+import signal
 import time
 from collections import defaultdict, deque
 from datetime import datetime
@@ -41,7 +43,29 @@ ACTIVE_TIMEOUT_MAX = 120
 # may contain very few packets.
 MIN_FLOW_PACKETS = 1
 
-TOTAL_DURATION = 40  # total monitoring time in seconds
+# Runs until explicitly stopped (Ctrl+C locally, or the Stop
+# button in the web dashboard, which sends CTRL_BREAK_EVENT ->
+# SIGBREAK -> KeyboardInterrupt on Windows, see handler below).
+TOTAL_DURATION = float("inf")
+
+
+# ============================================================
+# GRACEFUL STOP HANDLING (Windows)
+# ============================================================
+# CTRL_BREAK_EVENT does NOT raise KeyboardInterrupt by default on
+# Windows (unlike CTRL_C_EVENT) — it just kills the process outright,
+# skipping the flow-flushing cleanup below. Registering this handler
+# makes it behave like Ctrl+C, so the existing `except KeyboardInterrupt`
+# block in start_monitoring() still runs and any open flows get
+# evaluated before exit. This is what lets the web dashboard's Stop
+# button shut this down cleanly instead of hard-killing it.
+# ============================================================
+
+def _handle_stop_signal(signum, frame):
+    raise KeyboardInterrupt
+
+if os.name == "nt":
+    signal.signal(signal.SIGBREAK, _handle_stop_signal)
 
 
 # ============================================================
@@ -475,7 +499,7 @@ def start_monitoring():
     print()
     print("Idle timeout:", IDLE_TIMEOUT, "seconds")
     print("Max active duration before forced evaluation:", ACTIVE_TIMEOUT_MAX, "seconds")
-    print("Total monitoring duration:", TOTAL_DURATION, "seconds")
+    print("Total monitoring duration: until stopped (Ctrl+C / dashboard Stop button)")
     print()
     print("Press CTRL+C to stop early (any still-open flows will be evaluated on exit).")
     print("=" * 70)

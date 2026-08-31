@@ -70,6 +70,40 @@ export const getThreatSeverity = (attackType, confidence = 100) => {
   };
 };
 
+/**
+ * Translates a raw ML/heuristic label (e.g. "PORTSCAN, DDOS
+ * (heuristic-confirmed pattern across multiple flows)") into a short,
+ * plain-language sentence a non-technical client can act on. This never
+ * replaces the technical label — it's shown alongside it.
+ */
+export const getPlainSummary = (attackType) => {
+  if (!attackType) return 'No unusual activity — traffic looks normal.';
+  const type = attackType.toUpperCase();
+
+  if (type.includes('UNCERTAIN')) {
+    return "Unusual traffic, but not enough evidence to be sure — worth a look.";
+  }
+  if (type.includes('LOW-SUPPORT')) {
+    return 'A rare, unfamiliar pattern was flagged for manual review.';
+  }
+  if (type === 'BENIGN' || (type.includes('BENIGN') && !type.includes('DOS'))) {
+    return 'Normal, safe traffic — no action needed.';
+  }
+  if (type.includes('DDOS') || type.includes('DOS') || type.includes('FLOOD') || type.includes('BOTNET')) {
+    return "Your site is being flooded with traffic — this looks like an attack trying to knock it offline.";
+  }
+  if (type.includes('SQL') || type.includes('WEB') || type.includes('INJECTION')) {
+    return 'Someone attempted to break in through a form or link on your site.';
+  }
+  if (type.includes('PORTSCAN') || type.includes('SCAN') || type.includes('PROBE')) {
+    return 'Someone is scanning your site, looking for weak points.';
+  }
+  if (type.includes('BRUTE') || type.includes('FORCE')) {
+    return 'Repeated login attempts detected — someone may be trying to guess a password.';
+  }
+  return 'Suspicious activity was detected and blocked.';
+};
+
 export const formatBytes = (bytes, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
