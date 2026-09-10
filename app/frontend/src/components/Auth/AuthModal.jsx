@@ -20,6 +20,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'signin', onSu
   const [tab, setTab] = useState(initialTab); // 'signin' | 'signup' | 'verify'
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     email: '',
     password: '',
     company: '',
@@ -307,6 +308,20 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'signin', onSu
 
               <div className="space-y-1">
                 <label className="text-[11px] font-mono text-slate-300 flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 text-cyan-400" /> Username
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.username}
+                  onChange={(e) => handleInputChange('username', e.target.value)}
+                  placeholder="alex_mercer"
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500/60"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-mono text-slate-300 flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5 text-cyan-400" /> Work Email
                 </label>
                 <input
@@ -384,6 +399,14 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'signin', onSu
                   We sent a 6-digit verification code to <strong className="text-cyan-300 font-mono">{pendingEmail || formData.email}</strong>. Please check your email inbox (and spam folder) and enter the code below:
                 </p>
               </div>
+
+              {/* Conditional Fallback Code Banner */}
+              {revealedCode && (
+                <div className="p-2.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-center font-mono text-xs text-cyan-300">
+                  <span>Verification Code: </span>
+                  <strong className="text-sm font-black tracking-widest text-cyan-200">{revealedCode}</strong>
+                </div>
+              )}
 
               {/* 6 Individual Digit Inputs */}
               <form onSubmit={handleVerifySubmit} className="space-y-4">

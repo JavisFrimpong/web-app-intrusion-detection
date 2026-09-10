@@ -18,27 +18,27 @@ export default function ThreatDetection() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800/80">
+      <div className="glass-panel p-6 rounded-3xl border border-slate-700/80 bg-slate-900/90">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest block mb-1 flex items-center gap-1.5">
-              <Radio className="w-3.5 h-3.5 animate-pulse" />
+            <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-widest block mb-1 flex items-center gap-1.5">
+              <Radio className="w-4 h-4 animate-pulse text-cyan-400" />
               LIVE FLOW CAPTURE ENGINE
             </span>
-            <h1 className="text-2xl font-black text-slate-100">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-100">
               Live Detections
             </h1>
-            <p className="text-xs text-slate-400 mt-1 max-w-2xl font-sans">
+            <p className="text-xs sm:text-sm text-slate-200 mt-1.5 max-w-2xl font-sans font-medium leading-relaxed">
               Every row below is a real network flow captured, feature-extracted, and classified by the Random Forest
-              engine running on the server — the same output you'd see in the capture terminal, mirrored here.
+              engine running on the server — mirrored live in your Security Operations Center (SOC) console.
             </p>
           </div>
 
           <button
             onClick={recheckHistory}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 text-xs font-mono font-bold transition-all shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-700 text-slate-200 hover:text-cyan-300 hover:border-cyan-500/50 text-xs font-mono font-bold transition-all shrink-0 shadow-md"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh Now</span>
           </button>
         </div>
@@ -49,27 +49,25 @@ export default function ThreatDetection() {
 
       {/* Offline / no-capture-running banner */}
       {!isOnline && (
-        <div className="glass-panel p-5 rounded-2xl border border-amber-500/40 bg-amber-950/20 flex items-start gap-3">
+        <div className="glass-panel p-5 rounded-2xl border border-amber-500/50 bg-amber-950/40 flex items-start gap-3">
           <ServerCrash className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <h3 className="text-sm font-bold text-amber-300">Backend unreachable</h3>
-            <p className="text-xs text-amber-200/80 font-sans mt-1">
-              Couldn't reach the Flask API. Make sure the backend is running and that the flow capture engine
-              (<code className="text-amber-300">flow_monitor.py</code>) is active on the server, then hit
-              "Refresh Now". No cached or simulated data is shown while the backend is offline.
+            <h3 className="text-sm font-bold text-amber-300">Backend Local Engine Standby</h3>
+            <p className="text-xs text-amber-100 font-sans mt-1">
+              Could not connect to the local Flask API service. Make sure the backend service is running or click
+              "Refresh Now".
             </p>
           </div>
         </div>
       )}
 
       {isOnline && history.length === 0 && !loading && (
-        <div className="glass-panel p-5 rounded-2xl border border-slate-800/80 flex items-start gap-3">
+        <div className="glass-panel p-5 rounded-2xl border border-slate-700/80 bg-slate-900/90 flex items-start gap-3">
           <Info className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
           <div>
-            <h3 className="text-sm font-bold text-slate-200">Connected, but no flows captured yet</h3>
-            <p className="text-xs text-slate-400 font-sans mt-1">
-              The API is reachable but the predictions database is empty. Start the flow capture engine on the
-              server to begin populating live detections.
+            <h3 className="text-sm font-bold text-slate-100">Connected, but no flows captured yet</h3>
+            <p className="text-xs text-slate-200 font-sans mt-1">
+              The API is reachable and ready. Click "Start Monitoring" above to start capturing and inspecting web network traffic live.
             </p>
           </div>
         </div>

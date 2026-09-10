@@ -12,28 +12,45 @@ import {
   LogOut
 } from 'lucide-react';
 import { useSystemStatus } from '../../hooks/useSystemStatus';
-import { getStoredUser, logoutUser } from '../../services/authService';
+import { useDetectionHistory } from '../../hooks/useDetectionHistory';
+import { formatTimestamp } from '../../utils/formatters';
+import { useAuth } from '../../context/AuthContext';
 
 const pageTitles = {
-  '/': 'Security Operations Center (SOC) Overview',
-  '/threat-detection': 'Live Intrusion Detection Feed',
-  '/traffic-analysis': 'Network Traffic Metrics & Telemetry',
-  '/reports': 'Threat Intelligence & Logs History',
-  '/settings': 'System & ML Model Configuration',
+  '/dashboard': 'Security Operations Center (SOC) Overview',
+  '/dashboard/threat-detection': 'Live Intrusion Detection Feed',
+  '/dashboard/traffic-analysis': 'Network Traffic Metrics & Telemetry',
+  '/dashboard/reports': 'Threat Intelligence & Logs History',
+  '/dashboard/settings': 'System & ML Model Configuration',
 };
 
 export default function Navbar({ setMobileOpen }) {
   const location = useLocation();
   const currentPageTitle = pageTitles[location.pathname] || 'Dashboard';
   const { isOnline, model, status, loading, recheckStatus } = useSystemStatus(15000);
+  const { history, alerts } = useDetectionHistory(15000);
+  const { user, logout } = useAuth();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const currentUser = getStoredUser();
 
-  const notifications = [
-    { id: 1, title: 'SYN Flood Detected', time: '2 mins ago', type: 'critical' },
-    { id: 2, title: 'Model Status Active', time: '10 mins ago', type: 'info' },
-    { id: 3, title: 'Port Scan Blocked', time: '15 mins ago', type: 'warning' },
-  ];
+  // Real notifications, built from actual detections and heuristic alerts —
+  // not placeholder data. Threats first, most recent overall next.
+  const threatItems = history
+    .filter(item => item.prediction !== 0)
+    .map(item => ({
+      id: `det-${item.id}`,
+      title: item.attackType,
+      time: formatTimestamp(item.timestamp),
+      type: 'critical',
+    }));
+
+  const alertItems = alerts.map(a => ({
+    id: `alert-${a.id}`,
+    title: a.alertType,
+    time: formatTimestamp(a.timestamp),
+    type: 'warning',
+  }));
+
+  const notifications = [...alertItems, ...threatItems].slice(0, 5);
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80 px-4 lg:px-6 flex items-center justify-between">
@@ -84,7 +101,7 @@ export default function Navbar({ setMobileOpen }) {
                   <span className="hidden md:inline"> ({model})</span>
                 </span>
               ) : (
-                'API: LOCAL ENGINE ONLINE'
+                'API: OFFLINE'
               )}
             </span>
 
@@ -110,10 +127,15 @@ export default function Navbar({ setMobileOpen }) {
               <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                 <span className="text-xs font-semibold text-slate-200">SOC System Alerts</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300">
-                  3 New
+                  {notifications.length} {notifications.length === 1 ? 'item' : 'items'}
                 </span>
               </div>
               <div className="mt-2 space-y-2 max-h-60 overflow-y-auto">
+                {notifications.length === 0 && (
+                  <p className="text-[11px] text-slate-500 font-mono px-1 py-2">
+                    No alerts yet — this fills in as real traffic is captured.
+                  </p>
+                )}
                 {notifications.map((n) => (
                   <div key={n.id} className="p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 flex items-start space-x-2.5">
                     {n.type === 'critical' ? (
@@ -132,23 +154,22 @@ export default function Navbar({ setMobileOpen }) {
           )}
         </div>
 
-        {/* User Profile & Sign Out Button */}
+        {/* User Profile & Sign Out */}
         <div className="flex items-center space-x-2.5 pl-2 border-l border-slate-800">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center text-white border border-cyan-400/30 shadow-md shrink-0">
             <UserCheck className="w-4 h-4" />
           </div>
-          <div className="hidden md:flex flex-col min-w-0 max-w-[120px]">
+          <div className="hidden md:flex flex-col min-w-0 max-w-[140px]">
             <span className="text-xs font-semibold text-slate-200 leading-tight truncate">
-              {currentUser?.name || 'SOC Client'}
+              {user?.email || 'Signed in'}
             </span>
-            <span className="text-[10px] text-cyan-400 font-mono truncate">
-              {currentUser?.company || 'Enterprise Partner'}
+            <span className="text-[10px] text-cyan-400 font-mono">
+              AEGIS Security Engine
             </span>
           </div>
-
           <button
-            onClick={logoutUser}
-            title="Sign Out of AEGIS Console"
+            onClick={logout}
+            title="Sign out"
             className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-rose-400 hover:border-rose-500/40 transition-colors shrink-0"
           >
             <LogOut className="w-4 h-4" />

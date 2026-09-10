@@ -92,46 +92,46 @@ export default function DetectionTable({ detections = [], limit = null, title = 
       </div>
 
       {/* Table Structure */}
-      <div className="overflow-x-auto rounded-xl border border-slate-800/80">
+      <div className="overflow-x-auto rounded-xl border border-slate-700/80 bg-slate-900/90">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-950/80 text-[11px] font-mono text-slate-400 uppercase tracking-wider border-b border-slate-800">
-              <th className="py-3 px-4">Event ID</th>
-              <th className="py-3 px-4">Timestamp</th>
-              <th className="py-3 px-4">Source IP</th>
-              <th className="py-3 px-4">Dst Port</th>
-              <th className="py-3 px-4">Attack Classification</th>
-              <th className="py-3 px-4">Confidence</th>
-              <th className="py-3 px-4 text-right">Status</th>
+            <tr className="bg-slate-950 text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-700">
+              <th className="py-3.5 px-4">Event ID</th>
+              <th className="py-3.5 px-4">Timestamp</th>
+              <th className="py-3.5 px-4">Source IP</th>
+              <th className="py-3.5 px-4">Dst Port</th>
+              <th className="py-3.5 px-4">Attack Classification</th>
+              <th className="py-3.5 px-4">Confidence</th>
+              <th className="py-3.5 px-4 text-right">Status</th>
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-slate-800/60 text-xs">
+          <tbody className="divide-y divide-slate-800 text-xs sm:text-sm">
             {paginatedItems.length > 0 ? (
               paginatedItems.map((item, idx) => {
                 const isBenign = item.prediction === 0 || item.attackType === 'BENIGN';
                 return (
                   <tr 
                     key={item.id || idx}
-                    className="hover:bg-slate-900/60 transition-colors group"
+                    className="hover:bg-slate-800/60 transition-colors group"
                   >
-                    <td className="py-3 px-4 font-mono font-bold text-cyan-400">
+                    <td className="py-3.5 px-4 font-mono font-bold text-cyan-300">
                       {item.id}
                     </td>
 
-                    <td className="py-3 px-4 font-mono text-slate-400 whitespace-nowrap">
+                    <td className="py-3.5 px-4 font-mono text-slate-200 whitespace-nowrap">
                       {formatTimestamp(item.timestamp)}
                     </td>
 
-                    <td className="py-3 px-4 font-mono text-slate-200">
+                    <td className="py-3.5 px-4 font-mono font-bold text-slate-100">
                       {item.sourceIp}
                     </td>
 
-                    <td className="py-3 px-4 font-mono text-slate-300">
+                    <td className="py-3.5 px-4 font-mono text-slate-200">
                       :{item.destPort || 80}
                     </td>
 
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4">
                       <div className="flex items-center space-x-2">
                         {isBenign ? (
                           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -139,25 +139,25 @@ export default function DetectionTable({ detections = [], limit = null, title = 
                           <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
                         )}
                         <div>
-                          <span className={`font-semibold ${isBenign ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          <span className={`font-bold ${isBenign ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {item.attackType}
                           </span>
-                          <p className="text-[10px] text-slate-500 font-sans mt-0.5">
+                          <p className="text-xs text-slate-300 font-sans mt-0.5 font-medium">
                             {getPlainSummary(item.attackType)}
                           </p>
                         </div>
                       </div>
                     </td>
 
-                    <td className="py-3 px-4 font-mono font-bold text-slate-200">
+                    <td className="py-3.5 px-4 font-mono font-black text-slate-100">
                       {formatConfidence(item.confidence)}
                     </td>
 
-                    <td className="py-3 px-4 text-right">
-                      <span className={`px-2.5 py-1 text-[10px] font-extrabold font-mono rounded-full border uppercase ${
+                    <td className="py-3.5 px-4 text-right">
+                      <span className={`px-3 py-1 text-xs font-black font-mono rounded-full border uppercase ${
                         isBenign
-                          ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                          : 'bg-rose-500/10 text-rose-300 border-rose-500/30 shadow-[0_0_10px_rgba(244,63,94,0.2)]'
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
                       }`}>
                         {item.status || (isBenign ? 'CLEAN' : 'BLOCKED')}
                       </span>

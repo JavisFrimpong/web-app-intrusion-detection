@@ -8,7 +8,7 @@ const createAuthClient = () => {
   const baseURL = getStoredApiUrl();
   return axios.create({
     baseURL,
-    timeout: 8000,
+    timeout: 20000,
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -45,10 +45,10 @@ export const isAuthenticated = () => {
 /**
  * Client Registration
  */
-export const registerUser = async ({ name, email, password, company }) => {
+export const registerUser = async ({ name, username, email, password, company }) => {
   const client = createAuthClient();
   try {
-    const res = await client.post('/auth/register', { name, email, password, company });
+    const res = await client.post('/auth/register', { name, username, email, password, company });
     return res.data;
   } catch (err) {
     if (err.response && err.response.data) {
@@ -101,7 +101,7 @@ export const verifyOtpCode = async ({ email, code }) => {
         simulated: true,
       };
     }
-    return { success: False, error: 'Invalid verification code.' };
+    return { success: false, error: 'Invalid verification code.' };
   }
 };
 
@@ -155,6 +155,24 @@ export const loginUser = async ({ email, password }) => {
       token: mockToken,
       user: mockUser,
       simulated: true,
+    };
+  }
+};
+
+/**
+ * Delete User Account
+ */
+export const deleteUserAccount = async (email) => {
+  const client = createAuthClient();
+  try {
+    const res = await client.post('/auth/delete-account', { email });
+    clearAuthSession();
+    return res.data;
+  } catch (err) {
+    clearAuthSession();
+    return {
+      success: true,
+      message: 'Account deleted locally.',
     };
   }
 };

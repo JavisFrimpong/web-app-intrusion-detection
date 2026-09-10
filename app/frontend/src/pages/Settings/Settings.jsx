@@ -7,6 +7,7 @@ import {
   User, 
   CheckCircle2, 
   AlertCircle, 
+  AlertTriangle,
   RefreshCw, 
   Sliders, 
   ShieldCheck,
@@ -17,10 +18,14 @@ import {
   Wifi
 } from 'lucide-react';
 import { getStoredApiUrl, setStoredApiUrl, fetchSystemStatus } from '../../services/api';
+import { deleteUserAccount, getStoredUser } from '../../services/authService';
+import { useAuth } from '../../context/AuthContext';
 import { useSystemStatus } from '../../hooks/useSystemStatus';
 import { useDetectionHistory } from '../../hooks/useDetectionHistory';
 
 export default function Settings() {
+  const currentUser = getStoredUser();
+  const auth = useAuth();
   const [apiUrlInput, setApiUrlInput] = useState(getStoredApiUrl());
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
@@ -29,8 +34,36 @@ export default function Settings() {
   const [clearResult, setClearResult] = useState(null);
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+
+  // Delete Account State
+  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
+  const [deleteEmailInput, setDeleteEmailInput] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+
   const { recheckStatus, isOnline: isApiOnline } = useSystemStatus();
   const { isOnline: isDbOnline, clearHistory, totalCount } = useDetectionHistory(0);
+
+  const handleDeleteAccount = async () => {
+    const userEmail = currentUser?.email || deleteEmailInput.trim();
+    if (!userEmail) {
+      setDeleteError('Please enter your account email to confirm deletion.');
+      return;
+    }
+    setDeletingAccount(true);
+    setDeleteError(null);
+    const res = await deleteUserAccount(userEmail);
+    setDeletingAccount(false);
+    if (res.success) {
+      if (auth && auth.logout) {
+        await auth.logout();
+      } else {
+        window.location.href = '/landing';
+      }
+    } else {
+      setDeleteError(res.error || 'Failed to delete account.');
+    }
+  };
 
   const handleSaveApiUrl = async (e) => {
     e.preventDefault();
@@ -205,6 +238,64 @@ export default function Settings() {
           }`}>
             {clearResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" /> : <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />}
             <span>{clearResult.message}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Danger Zone: Delete User Account */}
+      <div className="glass-panel p-6 rounded-2xl border border-rose-600/40 bg-rose-950/10 space-y-4">
+        <div className="flex items-center space-x-2 pb-3 border-b border-rose-900/40">
+          <AlertTriangle className="w-5 h-5 text-rose-500" />
+          <h2 className="text-base font-bold text-rose-200">
+            Danger Zone — Account Operations
+          </h2>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-slate-200 font-semibold">Delete Client Account</p>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">
+              Permanently deletes your user credentials, organization references, and session profile from AEGIS Enterprise SOC database.
+            </p>
+          </div>
+          <button
+            onClick={() => setConfirmDeleteAccount(prev => !prev)}
+            className="px-5 py-2.5 rounded-xl font-mono font-bold text-xs uppercase tracking-wider bg-rose-900/40 border border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center gap-2 shrink-0"
+          >
+            <Trash2 className="w-4 h-4 shrink-0" />
+            <span>{confirmDeleteAccount ? 'Cancel Deletion' : 'Delete Account'}</span>
+          </button>
+        </div>
+
+        {confirmDeleteAccount && (
+          <div className="p-4 rounded-xl bg-slate-950 border border-rose-500/40 space-y-3 mt-3">
+            <p className="text-xs font-mono text-rose-300 font-semibold">
+              Warning: This action is permanent and cannot be undone. Enter your email address to confirm account deletion:
+            </p>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <input
+                type="email"
+                value={deleteEmailInput}
+                onChange={(e) => setDeleteEmailInput(e.target.value)}
+                placeholder={currentUser?.email || "confirm@yourcompany.com"}
+                className="flex-1 px-4 py-2.5 bg-slate-900 border border-rose-500/30 rounded-xl text-xs font-mono text-rose-200 focus:outline-none focus:border-rose-500"
+              />
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deletingAccount || (!currentUser?.email && !deleteEmailInput.trim())}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-50 shrink-0 shadow-lg shadow-rose-600/30"
+              >
+                {deletingAccount ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Trash2 className="w-4 h-4 shrink-0" />}
+                <span>Permanently Delete Account</span>
+              </button>
+            </div>
+
+            {deleteError && (
+              <p className="text-xs font-mono text-rose-400 flex items-center gap-1.5 pt-1">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{deleteError}</span>
+              </p>
+            )}
           </div>
         )}
       </div>

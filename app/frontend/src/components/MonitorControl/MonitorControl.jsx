@@ -19,7 +19,12 @@ export default function MonitorControl() {
 
   const [targetInput, setTargetInput] = useState('');
 
-  const handleStart = () => start(targetInput);
+  const canStart = targetInput.trim().length > 0 && !checking && !actionPending && backendReachable;
+
+  const handleStart = () => {
+    if (!canStart) return;
+    start(targetInput.trim());
+  };
   const handleStop = () => stop();
 
   return (
@@ -41,8 +46,8 @@ export default function MonitorControl() {
             </h3>
             <p className="text-xs text-slate-400 font-sans">
               {running
-                ? `Watching ${target ? target : 'all traffic on this server'}${uptimeSeconds != null ? ` — running for ${formatUptime(uptimeSeconds)}` : ''}.`
-                : 'Enter your website address below, then turn monitoring on.'}
+                ? `Watching ${target ? target : 'your site'}${uptimeSeconds != null ? ` — running for ${formatUptime(uptimeSeconds)}` : ''}. Only traffic to this address is captured.`
+                : 'Enter the website you want to watch, then turn monitoring on.'}
             </p>
           </div>
         </div>
@@ -56,20 +61,26 @@ export default function MonitorControl() {
               type="text"
               value={targetInput}
               onChange={(e) => setTargetInput(e.target.value)}
-              placeholder="e.g. mywebsite.com (leave blank to watch everything)"
+              placeholder="e.g. mywebsite.com — required"
               className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-sm text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-cyan-500/50"
               disabled={checking || actionPending || !backendReachable}
             />
           </div>
           <button
             onClick={handleStart}
-            disabled={checking || actionPending || !backendReachable}
+            disabled={!canStart}
             className="px-5 py-2.5 rounded-xl font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-40 shrink-0 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 hover:brightness-110"
           >
             {actionPending ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Play className="w-4 h-4 shrink-0" />}
             <span>{actionPending ? 'Starting…' : 'Start Monitoring'}</span>
           </button>
         </div>
+      )}
+
+      {!running && targetInput.trim().length === 0 && (
+        <p className="text-[11px] text-slate-500 font-mono">
+          A website address is required — this only ever watches the site you name, never your whole PC.
+        </p>
       )}
 
       {running && (

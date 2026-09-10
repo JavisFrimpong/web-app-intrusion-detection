@@ -41,11 +41,12 @@ export const useDetectionHistory = (pollInterval = 4000) => {
       setStats(statsRes.data);
       setLoading(false);
 
-      // Fire a toast event for any newly-seen threat in this batch
-      if (historyRes.history.length > 0) {
+      // Fire a toast event ONLY if live monitoring is currently ACTIVE
+      const isMonitoringActive = sessionStorage.getItem('ids_monitoring_active') === 'true';
+      if (isMonitoringActive && historyRes.history.length > 0) {
         const threats = [...historyRes.history]
           .reverse()
-          .filter(item => item.prediction !== 0);
+          .filter(item => item.prediction !== 0 && item.status === 'Blocked');
 
         threats.forEach(threat => {
           if (!alertedThreatIds.current.has(threat.id)) {
