@@ -15,11 +15,11 @@ import {
 import { motion } from 'framer-motion';
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/threat-detection', label: 'Live Detections', icon: ShieldAlert, badge: 'Live' },
-  { path: '/traffic-analysis', label: 'Traffic Analysis', icon: Activity },
-  { path: '/reports', label: 'Reports & Logs', icon: FileSpreadsheet },
-  { path: '/settings', label: 'Settings', icon: Settings },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/dashboard/threat-detection', label: 'Live Detections', icon: ShieldAlert, badge: 'Live' },
+  { path: '/dashboard/traffic-analysis', label: 'Traffic Analysis', icon: Activity },
+  { path: '/dashboard/reports', label: 'Reports & Logs', icon: FileSpreadsheet },
+  { path: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
@@ -102,6 +102,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
               <NavLink
                 key={item.path}
                 to={item.path}
+                end={item.path === '/dashboard'}
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) =>
                   `group relative flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${

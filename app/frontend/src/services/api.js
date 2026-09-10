@@ -16,12 +16,77 @@ const createApiClient = () => {
   const baseURL = getStoredApiUrl();
   return axios.create({
     baseURL,
-    timeout: 8000,
+    timeout: 20000,
+    withCredentials: true, // sends the login session cookie with every request
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
   });
+};
+
+// ---------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------
+
+export const signup = async (email, password, username, company) => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/auth/signup', { email, password, name: username, username, company });
+    return { success: true, ...response.data, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
+export const resendCode = async (email) => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/auth/resend-code', { email });
+    return { success: true, ...response.data, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
+export const verifyCode = async (email, code) => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/auth/verify', { email, code });
+    return { success: true, ...response.data, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
+export const login = async (email, password) => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/auth/login', { email, password });
+    return { success: true, ...response.data, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
+export const logout = async () => {
+  const api = createApiClient();
+  try {
+    await api.post('/auth/logout');
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
+export const fetchCurrentUser = async () => {
+  const api = createApiClient();
+  try {
+    const response = await api.get('/auth/me');
+    return { authenticated: true, email: response.data.email };
+  } catch (error) {
+    return { authenticated: false };
+  }
 };
 
 /**

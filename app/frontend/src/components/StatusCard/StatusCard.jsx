@@ -36,19 +36,19 @@ export default function StatusCard({ title, value, subtext, icon: Icon, color = 
     <motion.div
       whileHover={{ y: -3, scale: 1.01 }}
       transition={{ duration: 0.2 }}
-      className={`glass-panel p-5 rounded-2xl border transition-all duration-300 ${currentTheme.border} ${currentTheme.glow}`}
+      className={`glass-panel p-5 rounded-2xl border bg-slate-900/90 transition-all duration-300 ${currentTheme.border} ${currentTheme.glow}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="space-y-1 min-w-0">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 font-mono truncate block">
+        <div className="space-y-1.5 min-w-0 flex-1">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono block">
             {title}
           </span>
           <div className="flex flex-wrap items-baseline gap-1.5">
-            <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-100 tracking-tight font-sans truncate">
+            <h2 className="text-2xl sm:text-3xl lg:text-3xl font-black text-slate-100 tracking-tight font-sans">
               {value}
             </h2>
             {badge && (
-              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full font-mono uppercase shrink-0 ${badge.className}`}>
+              <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full font-mono uppercase shrink-0 ${badge.className}`}>
                 {badge.text}
               </span>
             )}
@@ -56,18 +56,18 @@ export default function StatusCard({ title, value, subtext, icon: Icon, color = 
         </div>
 
         {Icon && (
-          <div className={`p-2.5 rounded-xl ${currentTheme.iconBg} border border-white/5 shrink-0`}>
+          <div className={`p-2.5 rounded-xl ${currentTheme.iconBg} border border-white/10 shrink-0`}>
             <Icon className="w-5 h-5 lg:w-6 lg:h-6 shrink-0" />
           </div>
         )}
       </div>
 
-      <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs">
-        <span className="text-slate-400 font-mono flex items-center gap-1">
+      <div className="mt-4 pt-3 border-t border-slate-700/80 flex items-center justify-between text-xs sm:text-sm">
+        <span className="text-slate-200 font-mono font-medium flex items-center gap-1">
           {subtext}
         </span>
         {trend && (
-          <span className={`font-mono font-semibold ${trend.positive ? 'text-emerald-400' : 'text-rose-400'}`}>
+          <span className={`font-mono font-bold ${trend.positive ? 'text-emerald-400' : 'text-rose-400'}`}>
             {trend.text}
           </span>
         )}

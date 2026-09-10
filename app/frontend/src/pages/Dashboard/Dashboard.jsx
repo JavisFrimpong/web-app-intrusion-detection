@@ -47,26 +47,26 @@ export default function Dashboard() {
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5 max-w-2xl">
             <div className="flex items-center space-x-2">
-              <span className="px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono">
+              <span className="px-3 py-1 text-xs font-black uppercase tracking-widest rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 font-mono">
                 ENTERPRISE SOC PROTECTION
               </span>
-              <span className="text-slate-500 text-xs">•</span>
-              <span className="text-xs text-slate-400 font-mono flex items-center gap-1">
-                <Database className="w-3.5 h-3.5 text-blue-400" /> CICIDS2017 Trained
+              <span className="text-slate-400 text-xs">•</span>
+              <span className="text-xs sm:text-sm text-slate-200 font-mono font-semibold flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-cyan-400" /> CICIDS2017 Trained
               </span>
             </div>
 
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-100 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-100 tracking-tight">
               Machine Learning-Based Intrusion Detection System
             </h1>
 
-            <p className="text-xs sm:text-sm text-slate-400 font-sans leading-relaxed">
-              Real-time anomaly detection and web attack classification powered by a trained <strong className="text-cyan-400 font-mono">Random Forest ML model</strong> connected to production API engine.
+            <p className="text-xs sm:text-base text-slate-200 font-sans leading-relaxed font-medium">
+              Real-time anomaly detection and web attack classification powered by a trained <strong className="text-cyan-300 font-mono font-bold">Random Forest ML model</strong> connected to production API engine.
             </p>
           </div>
 
           <Link
-            to="/threat-detection"
+            to="/dashboard/threat-detection"
             className="inline-flex items-center justify-center px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-cyan-500 to-teal-400 text-slate-950 font-extrabold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-lg shadow-cyan-500/25 shrink-0 gap-2 group"
           >
             <Zap className="w-4 h-4 fill-slate-950" />
@@ -77,7 +77,8 @@ export default function Dashboard() {
       </motion.div>
 
       {/* Top 6 SOC Status Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      {/* Top 4 SOC Status Cards - Spacious 4-Column Layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatusCard
           title="System Status"
           value={status === 'active' || isApiConnected ? 'ACTIVE' : 'STANDBY'}
@@ -86,31 +87,7 @@ export default function Dashboard() {
           color="emerald"
           badge={{
             text: 'LIVE PROTECTION',
-            className: 'bg-emerald-500/20 text-emerald-300'
-          }}
-        />
-
-        <StatusCard
-          title="ML Model"
-          value="Random Forest"
-          subtext="CICIDS2017 Trained"
-          icon={Cpu}
-          color="cyan"
-          badge={{
-            text: 'RF-80',
-            className: 'bg-cyan-500/20 text-cyan-300'
-          }}
-        />
-
-        <StatusCard
-          title="API Connection"
-          value={isApiConnected ? 'Connected' : 'Offline'}
-          subtext="http://127.0.0.1:5000"
-          icon={Server}
-          color={isApiConnected ? 'blue' : 'red'}
-          badge={{
-            text: isApiConnected ? '200 OK' : 'UNREACHABLE',
-            className: isApiConnected ? 'bg-blue-500/20 text-blue-300' : 'bg-red-500/20 text-red-300'
+            className: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
           }}
         />
 
@@ -119,19 +96,19 @@ export default function Dashboard() {
           value="99.20%"
           subtext="Test Set Validation"
           icon={TrendingUp}
-          color="emerald"
-          trend={{ text: '+0.4%', positive: true }}
+          color="cyan"
+          trend={{ text: '+0.4% vs baseline', positive: true }}
         />
 
         <StatusCard
-          title="Threats Detected"
+          title="Threats Intercepted"
           value={threatCount.toString()}
           subtext="Attacks Intercepted"
           icon={ShieldAlert}
           color="red"
           badge={{
             text: `${((threatCount / (totalCount || 1)) * 100).toFixed(0)}% RATE`,
-            className: 'bg-red-500/20 text-red-300'
+            className: 'bg-red-500/20 text-red-300 border border-red-500/40'
           }}
         />
 
@@ -140,7 +117,7 @@ export default function Dashboard() {
           value={totalCount.toString()}
           subtext="Total Packet Flows Captured"
           icon={Activity}
-          color="blue"
+          color="purple"
         />
       </div>
 
