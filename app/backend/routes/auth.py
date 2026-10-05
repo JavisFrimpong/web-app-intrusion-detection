@@ -199,8 +199,6 @@ def send_verification_email(recipient_email, recipient_name, otp_code):
 
     if _send_email_via_resend(recipient_email, subject, text_body, html_body):
         return True
-    if _send_email_via_resend(recipient_email, subject, text_body, html_body):
-        return True
     return _send_email_via_smtp(recipient_email, subject, text_body, html_body)
 
 
