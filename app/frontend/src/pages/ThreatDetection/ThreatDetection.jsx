@@ -1,116 +1,53 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import {
-  Radio,
-  WifiOff,
-  RefreshCw,
-  ServerCrash,
-  AlertTriangle,
-  Info
-} from 'lucide-react';
+import { Radar, RefreshCw, ServerCrash, AlertTriangle, Info } from 'lucide-react';
 import { useDetectionHistory } from '../../hooks/useDetectionHistory';
 import DetectionTable from '../../components/DetectionTable/DetectionTable';
-import MonitorControl from '../../components/MonitorControl/MonitorControl';
 
 export default function ThreatDetection() {
-  const { history, alerts, stats, isOnline, loading, recheckHistory } = useDetectionHistory(4000);
+  const { history, alerts, isOnline, loading, recheckHistory } = useDetectionHistory(4000);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-700/80 bg-slate-900/90">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <section className="rounded-[28px] border border-slate-800/80 bg-slate-900/70 p-6">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <span className="text-xs font-mono text-cyan-300 font-bold uppercase tracking-widest block mb-1 flex items-center gap-1.5">
-              <Radio className="w-4 h-4 animate-pulse text-cyan-400" />
-              LIVE FLOW CAPTURE ENGINE
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-100">
-              Live Detections
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-200 mt-1.5 max-w-2xl font-sans font-medium leading-relaxed">
-              Every row below represents a network flow captured and feature-extracted by your authenticated Windows/Npcap sensor,
-              classified by the Random Forest engine, then synchronized to your hosted Security Operations Center (SOC) console.
-            </p>
+            <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-300"><Radar className="h-4 w-4"/> Live monitoring feed</span>
+            <h1 className="mt-2 text-3xl font-black text-white">Suspicious Activity</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Review traffic events and detection signals observed from websites connected to your AEGIS monitoring workspace.</p>
           </div>
-
-          <button
-            onClick={recheckHistory}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-950 border border-slate-700 text-slate-200 hover:text-cyan-300 hover:border-cyan-500/50 text-xs font-mono font-bold transition-all shrink-0 shadow-md"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh Now</span>
+          <button onClick={recheckHistory} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-2.5 text-xs font-bold text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300">
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}/> Refresh
           </button>
         </div>
-      </div>
+      </section>
 
-      {/* Start / Stop control — the client's replacement for running flow_monitor.py by hand */}
-      <MonitorControl />
-
-      {/* Offline / no-capture-running banner */}
       {!isOnline && (
-        <div className="glass-panel p-5 rounded-2xl border border-amber-500/50 bg-amber-950/40 flex items-start gap-3">
-          <ServerCrash className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="text-sm font-bold text-amber-300">Hosted API Unavailable</h3>
-            <p className="text-xs text-amber-100 font-sans mt-1">
-              Could not connect to the hosted AEGIS Flask API. Check your internet connection and click "Refresh Now".
-            </p>
-          </div>
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-950/25 p-5">
+          <ServerCrash className="mt-0.5 h-5 w-5 shrink-0 text-amber-400"/>
+          <div><h3 className="text-sm font-bold text-amber-200">Monitoring service unavailable</h3><p className="mt-1 text-xs text-amber-100/70">AEGIS could not reach the hosted monitoring API. Check the service connection and refresh this page.</p></div>
         </div>
       )}
 
-      {isOnline && history.length === 0 && !loading && (
-        <div className="glass-panel p-5 rounded-2xl border border-slate-700/80 bg-slate-900/90 flex items-start gap-3">
-          <Info className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
-          <div>
-            <h3 className="text-sm font-bold text-slate-100">Connected, but no flows captured yet</h3>
-            <p className="text-xs text-slate-200 font-sans mt-1">
-              The hosted API is reachable. Connect your account's Windows sensor and click "Start Monitoring" to capture and inspect live web network traffic.
-            </p>
-          </div>
+      {isOnline && history.length===0 && !loading && (
+        <div className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-900/65 p-5">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300"/>
+          <div><h3 className="text-sm font-bold text-white">No monitoring events yet</h3><p className="mt-1 text-xs leading-5 text-slate-400">Add and connect a website from the Websites page. Detection events will appear here once traffic is being observed.</p></div>
         </div>
       )}
 
-      {/* Heuristic alerts panel (PortScan / DDoS pattern detections) */}
-      {alerts.length > 0 && (
-        <div className="glass-panel p-5 rounded-2xl border border-rose-500/30 space-y-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-400" />
-            <h3 className="text-sm font-bold text-slate-100">Heuristic Pattern Alerts</h3>
-            <span className="text-[10px] text-rose-300 font-mono px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30">
-              {alerts.length} recent
-            </span>
+      {alerts.length>0 && (
+        <section className="rounded-2xl border border-rose-500/20 bg-slate-900/65 p-5">
+          <div className="mb-3 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-rose-400"/><h3 className="text-sm font-bold text-white">Recent pattern alerts</h3><span className="rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300">{alerts.length}</span></div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {alerts.slice(0,6).map(alert=><div key={alert.id} className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 text-xs"><div className="flex justify-between gap-3"><span className="font-bold text-rose-300">{alert.alertType}</span><span className="text-slate-600">{alert.timestamp}</span></div><p className="mt-1 truncate text-slate-400" title={alert.message}>{alert.message}</p><p className="mt-1 text-slate-600">Source: {alert.sourceIp}</p></div>)}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {alerts.slice(0, 6).map((alert) => (
-              <div key={alert.id} className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs font-mono">
-                <div className="flex items-center justify-between">
-                  <span className="text-rose-400 font-bold">{alert.alertType}</span>
-                  <span className="text-slate-500">{alert.timestamp}</span>
-                </div>
-                <p className="text-slate-300 mt-1 truncate" title={alert.message}>{alert.message}</p>
-                <p className="text-slate-500 mt-0.5">Source: {alert.sourceIp}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+        </section>
       )}
 
-      {/* Live feed table */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <DetectionTable
-          detections={history}
-          title="Live Detection Feed"
-        />
+      <motion.div initial={{opacity:0}} animate={{opacity:1}}>
+        <DetectionTable detections={history} title="Monitoring Event Feed" />
       </motion.div>
-
-      {!isOnline && history.length === 0 && (
-        <div className="text-center py-6 text-slate-600">
-          <WifiOff className="w-8 h-8 mx-auto mb-2" />
-          <p className="text-xs font-mono">Waiting for connection to the hosted AEGIS service...</p>
-        </div>
-      )}
     </div>
   );
 }
