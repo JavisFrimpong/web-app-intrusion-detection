@@ -85,7 +85,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                 <Cpu className="w-3.5 h-3.5 text-cyan-400" /> Core Engine
               </span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-                99.2% ACC
+                99.7% ACC
               </span>
             </div>
             <p className="text-[11px] text-slate-400 font-mono">
