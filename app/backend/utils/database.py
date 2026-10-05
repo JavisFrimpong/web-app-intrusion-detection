@@ -105,6 +105,8 @@ def initialize_database(db=None):
                     company TEXT,
                     verification_code TEXT,
                     verification_expires_at TEXT,
+                    password_reset_code TEXT,
+                    password_reset_expires_at TEXT,
                     sensor_token TEXT UNIQUE,
                     is_verified INTEGER DEFAULT 0,
                     created_at TEXT
@@ -144,6 +146,8 @@ def initialize_database(db=None):
                 )
             """)
             db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires_at TEXT")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_code TEXT")
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TEXT")
             db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sensor_token TEXT")
             db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_sensor_token ON users(sensor_token)")
             db.execute("ALTER TABLE predictions ADD COLUMN IF NOT EXISTS user_id INTEGER")
@@ -202,6 +206,10 @@ def initialize_database(db=None):
 
             if "verification_expires_at" not in _sqlite_column_names(db, "users"):
                 db.execute("ALTER TABLE users ADD COLUMN verification_expires_at TEXT")
+            if "password_reset_code" not in _sqlite_column_names(db, "users"):
+                db.execute("ALTER TABLE users ADD COLUMN password_reset_code TEXT")
+            if "password_reset_expires_at" not in _sqlite_column_names(db, "users"):
+                db.execute("ALTER TABLE users ADD COLUMN password_reset_expires_at TEXT")
             if "sensor_token" not in _sqlite_column_names(db, "users"):
                 db.execute("ALTER TABLE users ADD COLUMN sensor_token TEXT")
             db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_sensor_token ON users(sensor_token)")
