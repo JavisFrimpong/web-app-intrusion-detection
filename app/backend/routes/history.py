@@ -1,74 +1,14 @@
-import os
-import sqlite3
 from datetime import datetime
 from collections import defaultdict
 from flask import Blueprint, jsonify, request
 
 from routes.auth import require_authenticated_user
+from utils.database import get_db
 
 history_bp = Blueprint("history", __name__)
 
-BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.environ.get("AEGIS_DB_PATH") or (
-    "/tmp/aegis_predictions.db"
-    if os.environ.get("VERCEL")
-    else os.path.abspath(os.path.join(BACKEND_DIR, "../traffic-monitor/predictions.db"))
-)
-
-
-def _column_names(cursor, table_name):
-    cursor.execute(f"PRAGMA table_info({table_name})")
-    return {row[1] for row in cursor.fetchall()}
-
-
-def initialize_db_if_needed():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS predictions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            prediction INTEGER,
-            attack_type TEXT,
-            confidence REAL,
-            timestamp TEXT,
-            source_ip TEXT,
-            source_port INTEGER,
-            destination_ip TEXT,
-            destination_port INTEGER,
-            packet_count INTEGER
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS heuristic_alerts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            alert_type TEXT,
-            message TEXT,
-            timestamp TEXT,
-            source_ip TEXT
-        )
-    """)
-
-    # Safe migration for databases created by earlier versions.
-    if "user_id" not in _column_names(cursor, "predictions"):
-        cursor.execute("ALTER TABLE predictions ADD COLUMN user_id INTEGER")
-    if "user_id" not in _column_names(cursor, "heuristic_alerts"):
-        cursor.execute("ALTER TABLE heuristic_alerts ADD COLUMN user_id INTEGER")
-
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_predictions_user_id ON predictions(user_id)")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_user_id ON heuristic_alerts(user_id)")
-    conn.commit()
-    conn.close()
-
-
 def get_db_connection():
-    initialize_db_if_needed()
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    return get_db()
 
 
 @history_bp.route("/history", methods=["GET"])
@@ -142,17 +82,17 @@ def get_stats():
         conn = get_db_connection()
         uid = user["id"]
         total_count = conn.execute(
-            "SELECT COUNT(*) FROM predictions WHERE user_id = ?", (uid,)
-        ).fetchone()[0]
+            "SELECT COUNT(*) AS count FROM predictions WHERE user_id = ?", (uid,)
+        ).fetchone()["count"]
         benign_count = conn.execute(
-            "SELECT COUNT(*) FROM predictions WHERE user_id = ? AND prediction = 0", (uid,)
-        ).fetchone()[0]
+            "SELECT COUNT(*) AS count FROM predictions WHERE user_id = ? AND prediction = 0", (uid,)
+        ).fetchone()["count"]
         threat_count = conn.execute(
-            "SELECT COUNT(*) FROM predictions WHERE user_id = ? AND prediction != 0", (uid,)
-        ).fetchone()[0]
+            "SELECT COUNT(*) AS count FROM predictions WHERE user_id = ? AND prediction != 0", (uid,)
+        ).fetchone()["count"]
         alerts_count = conn.execute(
-            "SELECT COUNT(*) FROM heuristic_alerts WHERE user_id = ?", (uid,)
-        ).fetchone()[0]
+            "SELECT COUNT(*) AS count FROM heuristic_alerts WHERE user_id = ?", (uid,)
+        ).fetchone()["count"]
         rows = conn.execute(
             "SELECT prediction, attack_type, timestamp FROM predictions WHERE user_id = ? ORDER BY id DESC LIMIT 2000",
             (uid,),
