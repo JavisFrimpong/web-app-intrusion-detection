@@ -1,11 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Radar, RefreshCw, ServerCrash, AlertTriangle, Info } from 'lucide-react';
+import { Radar, RefreshCw, ServerCrash, AlertTriangle, Info, FlaskConical, CheckCircle2 } from 'lucide-react';
 import { useDetectionHistory } from '../../hooks/useDetectionHistory';
 import DetectionTable from '../../components/DetectionTable/DetectionTable';
+import { runCicidsDemoSample } from '../../services/api';
 
 export default function ThreatDetection() {
   const { history, alerts, isOnline, loading, recheckHistory } = useDetectionHistory(4000);
+  const [demoRunning, setDemoRunning] = useState(false);
+  const [demoResult, setDemoResult] = useState(null);
+  const [demoError, setDemoError] = useState(null);
+
+  const runDemo = async () => {
+    setDemoRunning(true);
+    setDemoError(null);
+    const res = await runCicidsDemoSample();
+    setDemoRunning(false);
+    if (!res.success) {
+      setDemoError(res.error);
+      return;
+    }
+    setDemoResult(res.data);
+    await recheckHistory();
+  };
 
   return (
     <div className="space-y-6">
@@ -20,6 +37,30 @@ export default function ThreatDetection() {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}/> Refresh
           </button>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-cyan-500/20 bg-slate-900/65 p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-2xl">
+            <div className="flex items-center gap-2 text-xs font-bold text-cyan-300"><FlaskConical className="h-4 w-4"/> Random Forest verification mode</div>
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              Run a genuine standardized CICIDS2017 flow preserved in this project's preprocessing notebook through the deployed 100-tree Random Forest. The result is stored in the event feed as <span className="font-mono text-slate-300">CICIDS2017-DEMO</span>. This verifies the ML pipeline without pretending it is live client traffic.
+            </p>
+          </div>
+          <button onClick={runDemo} disabled={demoRunning || !isOnline} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 px-4 py-2.5 text-xs font-black text-slate-950 disabled:opacity-50">
+            {demoRunning ? <RefreshCw className="h-4 w-4 animate-spin"/> : <FlaskConical className="h-4 w-4"/>}
+            {demoRunning ? 'Running model…' : 'Run ML verification'}
+          </button>
+        </div>
+        {demoResult && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-3 text-xs">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400"/>
+            <span className="font-bold text-emerald-300">{demoResult.attack_type}</span>
+            <span className="text-slate-400">Confidence: {demoResult.confidence}%</span>
+            <span className="text-slate-500">100 trees • 78 features</span>
+          </div>
+        )}
+        {demoError && <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-950/20 p-3 text-xs text-rose-300">{demoError}</div>}
       </section>
 
       {!isOnline && (
