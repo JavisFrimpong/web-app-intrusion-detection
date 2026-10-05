@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: aegis-ids-api
+    runtime: python
+    rootDir: app/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+    healthCheckPath: /
+    envVars:
+      - key: FRONTEND_ORIGIN
+        value: https://web-app-intrusion-detection.vercel.app
+      - key: AEGIS_DB_PATH
+        value: /var/data/aegis_predictions.db
+      - key: AEGIS_SENSOR_TOKEN
+        generateValue: true
+    disk:
+      name: aegis-data
+      mountPath: /var/data
+      sizeGB: 1
