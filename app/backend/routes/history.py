@@ -4,9 +4,10 @@ from datetime import datetime
 from collections import defaultdict
 from flask import Blueprint, jsonify, request
 
+from routes.auth import require_authenticated_user
+
 history_bp = Blueprint("history", __name__)
 
-# Absolute path to the SQLite database
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.environ.get("AEGIS_DB_PATH") or (
     "/tmp/aegis_predictions.db"
@@ -14,14 +15,21 @@ DB_PATH = os.environ.get("AEGIS_DB_PATH") or (
     else os.path.abspath(os.path.join(BACKEND_DIR, "../traffic-monitor/predictions.db"))
 )
 
+
+def _column_names(cursor, table_name):
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    return {row[1] for row in cursor.fetchall()}
+
+
 def initialize_db_if_needed():
-    """Ensure database file and tables exist before querying."""
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS predictions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             prediction INTEGER,
             attack_type TEXT,
             confidence REAL,
@@ -36,14 +44,25 @@ def initialize_db_if_needed():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS heuristic_alerts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
             alert_type TEXT,
             message TEXT,
             timestamp TEXT,
             source_ip TEXT
         )
     """)
+
+    # Safe migration for databases created by earlier versions.
+    if "user_id" not in _column_names(cursor, "predictions"):
+        cursor.execute("ALTER TABLE predictions ADD COLUMN user_id INTEGER")
+    if "user_id" not in _column_names(cursor, "heuristic_alerts"):
+        cursor.execute("ALTER TABLE heuristic_alerts ADD COLUMN user_id INTEGER")
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_predictions_user_id ON predictions(user_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_user_id ON heuristic_alerts(user_id)")
     conn.commit()
     conn.close()
+
 
 def get_db_connection():
     initialize_db_if_needed()
@@ -51,35 +70,32 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+
 @history_bp.route("/history", methods=["GET"])
 def get_history():
-    limit = request.args.get("limit", default=50, type=int)
+    user, error = require_authenticated_user()
+    if error:
+        return error
+
+    limit = max(1, min(request.args.get("limit", default=50, type=int), 500))
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Get predictions
-        cursor.execute(
-            "SELECT * FROM predictions ORDER BY id DESC LIMIT ?", (limit,)
-        )
-        predictions = cursor.fetchall()
-        
-        # Get heuristic alerts
-        cursor.execute(
-            "SELECT * FROM heuristic_alerts ORDER BY id DESC LIMIT ?", (limit,)
-        )
-        alerts = cursor.fetchall()
-        
+        predictions = conn.execute(
+            "SELECT * FROM predictions WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+            (user["id"], limit),
+        ).fetchall()
+        alerts = conn.execute(
+            "SELECT * FROM heuristic_alerts WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+            (user["id"], limit),
+        ).fetchall()
         conn.close()
-        
-        # Map predictions to expected frontend structure
+
         formatted_history = []
         for row in predictions:
             pred_val = row["prediction"]
             raw_attack = str(row["attack_type"] or "")
             dest_port = row["destination_port"] or 80
 
-            # Normalize attack label for display
             if pred_val == 0 or "BENIGN" in raw_attack.upper():
                 display_attack = "BENIGN"
                 status_label = "Clean"
@@ -98,76 +114,70 @@ def get_history():
                 "destPort": dest_port,
                 "attackType": display_attack,
                 "prediction": pred_val,
-                "confidence": row["confidence"] or 98.5,
+                "confidence": row["confidence"] or 0,
                 "protocol": "TCP",
-                "status": status_label
+                "status": status_label,
             })
-            
-        formatted_alerts = []
-        for row in alerts:
-            formatted_alerts.append({
-                "id": f"ALT-{row['id']}",
-                "alertType": row["alert_type"],
-                "message": row["message"],
-                "timestamp": row["timestamp"],
-                "sourceIp": row["source_ip"]
-            })
-            
-        return jsonify({
-            "success": True,
-            "history": formatted_history,
-            "alerts": formatted_alerts
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+
+        formatted_alerts = [{
+            "id": f"ALT-{row['id']}",
+            "alertType": row["alert_type"],
+            "message": row["message"],
+            "timestamp": row["timestamp"],
+            "sourceIp": row["source_ip"],
+        } for row in alerts]
+
+        return jsonify({"success": True, "history": formatted_history, "alerts": formatted_alerts})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
 
 @history_bp.route("/stats", methods=["GET"])
 def get_stats():
+    user, error = require_authenticated_user()
+    if error:
+        return error
+
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Get total metrics
-        cursor.execute("SELECT COUNT(*) FROM predictions")
-        total_count = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM predictions WHERE prediction = 0")
-        benign_count = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM predictions WHERE prediction != 0")
-        threat_count = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM heuristic_alerts")
-        alerts_count = cursor.fetchone()[0]
-        
-        # Fetch raw classifications for pie chart & bar charts
-        cursor.execute("SELECT prediction, attack_type, timestamp FROM predictions ORDER BY id DESC LIMIT 2000")
-        rows = cursor.fetchall()
+        uid = user["id"]
+        total_count = conn.execute(
+            "SELECT COUNT(*) FROM predictions WHERE user_id = ?", (uid,)
+        ).fetchone()[0]
+        benign_count = conn.execute(
+            "SELECT COUNT(*) FROM predictions WHERE user_id = ? AND prediction = 0", (uid,)
+        ).fetchone()[0]
+        threat_count = conn.execute(
+            "SELECT COUNT(*) FROM predictions WHERE user_id = ? AND prediction != 0", (uid,)
+        ).fetchone()[0]
+        alerts_count = conn.execute(
+            "SELECT COUNT(*) FROM heuristic_alerts WHERE user_id = ?", (uid,)
+        ).fetchone()[0]
+        rows = conn.execute(
+            "SELECT prediction, attack_type, timestamp FROM predictions WHERE user_id = ? ORDER BY id DESC LIMIT 2000",
+            (uid,),
+        ).fetchall()
         conn.close()
-        
-        # 1. Attack Distribution
+
         dist_counts = defaultdict(int)
         for row in rows:
             lbl = row["attack_type"] or ""
-            if "BENIGN" in lbl:
+            upper = lbl.upper()
+            if "BENIGN" in upper:
                 dist_counts["BENIGN"] += 1
-            elif "PORTSCAN" in lbl.upper() or "PORT_SCAN" in lbl.upper():
+            elif "PORTSCAN" in upper or "PORT_SCAN" in upper:
                 dist_counts["PortScan"] += 1
-            elif "DOS" in lbl.upper() or "DDOS" in lbl.upper() or "FLOOD" in lbl.upper():
+            elif "DOS" in upper or "DDOS" in upper or "FLOOD" in upper:
                 dist_counts["DoS / DDoS"] += 1
-            elif "SQL" in lbl.upper() or "INJECTION" in lbl.upper() or "WEB" in lbl.upper():
+            elif "SQL" in upper or "INJECTION" in upper or "WEB" in upper:
                 dist_counts["Web Attack (SQLi)"] += 1
-            elif "BRUTE" in lbl.upper() or "FORCE" in lbl.upper():
+            elif "BRUTE" in upper or "FORCE" in upper:
                 dist_counts["Brute Force"] += 1
-            elif "BOTNET" in lbl.upper():
+            elif "BOTNET" in upper:
                 dist_counts["Botnet"] += 1
             else:
-                if row["prediction"] == 0:
-                    dist_counts["BENIGN"] += 1
-                else:
-                    dist_counts["Other"] += 1
-                    
-        # Setup pie colors
+                dist_counts["BENIGN" if row["prediction"] == 0 else "Other"] += 1
+
         color_map = {
             "BENIGN": "#10b981",
             "DoS / DDoS": "#ef4444",
@@ -175,67 +185,42 @@ def get_stats():
             "Web Attack (SQLi)": "#f43f5e",
             "Brute Force": "#a855f7",
             "Botnet": "#06b6d4",
-            "Other": "#64748b"
+            "Other": "#64748b",
         }
-        
-        attack_distribution = []
-        for name, color in color_map.items():
-            # Include all classes, even if 0, so the legend displays cleanly,
-            # or filter if needed. Including all is standard for visual layout consistency.
-            attack_distribution.append({
-                "name": name,
-                "value": dist_counts[name],
-                "color": color
-            })
-            
-        # 2. Threat Categories (Bar Chart counts & Risk Scores)
+        attack_distribution = [
+            {"name": name, "value": dist_counts[name], "color": color}
+            for name, color in color_map.items()
+        ]
+
         threat_categories = [
             {"category": "DoS / DDoS", "count": dist_counts["DoS / DDoS"], "riskScore": 95},
             {"category": "PortScan", "count": dist_counts["PortScan"], "riskScore": 65},
             {"category": "SQL Injection", "count": dist_counts["Web Attack (SQLi)"], "riskScore": 90},
             {"category": "SSH BruteForce", "count": dist_counts["Brute Force"], "riskScore": 78},
-            {"category": "Botnet C2", "count": dist_counts["Botnet"], "riskScore": 88}
+            {"category": "Botnet C2", "count": dist_counts["Botnet"], "riskScore": 88},
         ]
-        
-        # 3. Traffic Timeline (grouped by minute)
+
         timeline_map = defaultdict(lambda: {"benign": 0, "attacks": 0, "total": 0})
-        # Process chronologically
         for row in reversed(rows):
-            ts = row["timestamp"]
             try:
-                # Timestamps are datetime.now().isoformat() or custom formatted string
-                # We handle both ISO standard and space-separated formats
-                ts_clean = ts.split(".")[0] # remove milliseconds
-                if "T" in ts_clean:
-                    dt = datetime.strptime(ts_clean, "%Y-%m-%dT%H:%M:%S")
-                else:
-                    dt = datetime.strptime(ts_clean, "%Y-%m-%d %H:%M:%S")
-                time_str = dt.strftime("%H:%M")
-                
+                ts_clean = row["timestamp"].split(".")[0]
+                fmt = "%Y-%m-%dT%H:%M:%S" if "T" in ts_clean else "%Y-%m-%d %H:%M:%S"
+                time_str = datetime.strptime(ts_clean, fmt).strftime("%H:%M")
                 is_attack = row["prediction"] != 0
-                if is_attack:
-                    timeline_map[time_str]["attacks"] += 1
-                else:
-                    timeline_map[time_str]["benign"] += 1
+                timeline_map[time_str]["attacks" if is_attack else "benign"] += 1
                 timeline_map[time_str]["total"] += 1
             except Exception:
                 continue
-                
-        # Sort and take last 8 timeline data points
+
         sorted_times = sorted(timeline_map.keys())[-8:]
-        traffic_timeline = []
-        for t in sorted_times:
-            traffic_timeline.append({
-                "time": t,
-                "benign": timeline_map[t]["benign"],
-                "attacks": timeline_map[t]["attacks"],
-                "total": timeline_map[t]["total"]
-            })
-            
-        # Fallback if empty timeline to avoid rendering issues
+        traffic_timeline = [{"time": t, **timeline_map[t]} for t in sorted_times]
         if not traffic_timeline:
-            now_str = datetime.now().strftime("%H:%M")
-            traffic_timeline = [{"time": now_str, "benign": 0, "attacks": 0, "total": 0}]
+            traffic_timeline = [{
+                "time": datetime.now().strftime("%H:%M"),
+                "benign": 0,
+                "attacks": 0,
+                "total": 0,
+            }]
 
         return jsonify({
             "success": True,
@@ -243,27 +228,28 @@ def get_stats():
                 "totalCount": total_count,
                 "benignCount": benign_count,
                 "threatCount": threat_count,
-                "alertsCount": alerts_count
+                "alertsCount": alerts_count,
             },
             "attackDistribution": attack_distribution,
             "threatCategories": threat_categories,
-            "trafficTimeline": traffic_timeline
+            "trafficTimeline": traffic_timeline,
         })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
 
 @history_bp.route("/history/clear", methods=["POST"])
 def clear_history():
+    user, error = require_authenticated_user()
+    if error:
+        return error
+
     try:
         conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM predictions")
-        cursor.execute("DELETE FROM heuristic_alerts")
+        conn.execute("DELETE FROM predictions WHERE user_id = ?", (user["id"],))
+        conn.execute("DELETE FROM heuristic_alerts WHERE user_id = ?", (user["id"],))
         conn.commit()
         conn.close()
-        return jsonify({
-            "success": True,
-            "message": "Database records cleared successfully."
-        })
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": True, "message": "Your detection records were cleared."})
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
