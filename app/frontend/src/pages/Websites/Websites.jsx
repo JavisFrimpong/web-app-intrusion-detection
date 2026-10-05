@@ -37,7 +37,7 @@ export default function Websites() {
     setDomain('');
     setLabel('');
     setOpen(false);
-    setMessage('Website added. Verify the connection before monitoring setup.');
+    setMessage('Website added. Connect it to start hosted monitoring.');
     await load();
   };
 
@@ -112,7 +112,7 @@ export default function Websites() {
         <section className="rounded-[28px] border border-dashed border-slate-700 bg-slate-900/40 p-10 text-center">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10"><Globe2 className="h-6 w-6 text-cyan-300"/></div>
           <h2 className="mt-5 text-xl font-black text-white">No websites added yet</h2>
-          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">Add a public website first. AEGIS will test whether the hosted service can reach it before monitoring setup continues.</p>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">Add a public website first. AEGIS will test whether the hosted service can reach it, then begin hosted monitoring.</p>
         </section>
       ) : (
         <section className="rounded-2xl border border-slate-800 bg-slate-900/65">
