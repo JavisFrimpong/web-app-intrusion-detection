@@ -1,3 +1,4 @@
+import os
 from flask import Flask, jsonify
 from flask_cors import CORS
 from routes.monitor import monitor_bp
@@ -12,16 +13,22 @@ from routes.sensor import sensor_bp
 
 app = Flask(__name__)
 
-# Allow the local Vite/React console to communicate with Flask.
+# Allow the deployed Vercel dashboard and local development clients.
+frontend_origin = (os.environ.get("FRONTEND_ORIGIN") or "").strip()
+allowed_origins = [
+    "https://web-app-intrusion-detection.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+if frontend_origin and frontend_origin not in allowed_origins:
+    allowed_origins.append(frontend_origin)
+
 CORS(
     app,
     supports_credentials=True,
-    origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    origins=allowed_origins,
 )
 
 # Try loading the model at startup. Missing assets no longer crash Flask.
