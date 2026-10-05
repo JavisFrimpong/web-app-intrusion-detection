@@ -140,6 +140,51 @@ def send_verification_email(recipient_email, recipient_name, otp_code):
         return False
 
 
+
+def send_password_reset_email(recipient_email, recipient_name, reset_code):
+    if not SMTP_USER or not SMTP_PASS:
+        print(f"[AEGIS] SMTP not configured. Password reset code for {recipient_email}: {reset_code}")
+        return False
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"AEGIS SOC - Password Reset Code: {reset_code}"
+        msg["From"] = f"AEGIS Enterprise Security <{SMTP_USER}>"
+        msg["To"] = recipient_email
+
+        text_body = (
+            f"Hello {recipient_name},\n\n"
+            f"Your AEGIS SOC password reset code is: {reset_code}\n\n"
+            "This code expires in 10 minutes. If you did not request a password reset, ignore this email."
+        )
+        html_body = f"""
+        <!doctype html>
+        <html>
+          <body style="font-family:Segoe UI,Arial,sans-serif;background:#020617;color:#f8fafc;padding:24px">
+            <div style="max-width:520px;margin:auto;background:#0f172a;border:1px solid #1e293b;border-radius:18px;padding:32px">
+              <div style="font-size:20px;font-weight:900;color:#38bdf8">AEGIS SOC</div>
+              <p style="color:#cbd5e1">Hello <strong>{recipient_name}</strong>,</p>
+              <p style="color:#cbd5e1">Use this code to reset your AEGIS password.</p>
+              <div style="margin:24px 0;padding:18px;text-align:center;background:#020617;border:1px solid #38bdf8;border-radius:12px;font-size:30px;font-weight:900;letter-spacing:8px;color:#38bdf8">{reset_code}</div>
+              <p style="font-size:12px;color:#94a3b8">This code expires in 10 minutes. If you did not request this, no action is required.</p>
+            </div>
+          </body>
+        </html>
+        """
+        msg.attach(MIMEText(text_body, "plain"))
+        msg.attach(MIMEText(html_body, "html"))
+
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=8)
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASS)
+        server.sendmail(SMTP_USER, [recipient_email], msg.as_string())
+        server.quit()
+        return True
+    except Exception as exc:
+        print(f"[AEGIS] Password reset SMTP error: {exc}")
+        return False
+
+
 @auth_bp.route("/auth/register", methods=["POST", "OPTIONS"])
 @auth_bp.route("/auth/signup", methods=["POST", "OPTIONS"])
 def register():
@@ -327,6 +372,123 @@ def resend_code():
         if not sent and os.environ.get("RENDER"):
             return jsonify({"success": False, "error": "Email delivery is not configured on the server."}), 503
         return jsonify(response)
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@auth_bp.route("/auth/forgot-password", methods=["POST", "OPTIONS"])
+def forgot_password():
+    if request.method == "OPTIONS":
+        return jsonify({"success": True}), 200
+
+    try:
+        data = request.json or {}
+        email = (data.get("email") or "").strip().lower()
+        if not email:
+            return jsonify({"success": False, "error": "Email is required."}), 400
+
+        conn = get_db()
+        user = conn.execute(
+            "SELECT * FROM users WHERE lower(email) = lower(?) LIMIT 1",
+            (email,),
+        ).fetchone()
+
+        # Generic response prevents account enumeration.
+        generic = {
+            "success": True,
+            "message": "If an AEGIS account exists for this email, a password reset code has been sent."
+        }
+
+        if not user:
+            conn.close()
+            return jsonify(generic)
+
+        code = generate_otp_code()
+        expires_at = (datetime.utcnow() + timedelta(minutes=10)).isoformat()
+        conn.execute(
+            "UPDATE users SET password_reset_code = ?, password_reset_expires_at = ? WHERE id = ?",
+            (code, expires_at, user["id"]),
+        )
+        conn.commit()
+
+        sent = send_password_reset_email(email, user["name"], code)
+        if not sent:
+            conn.execute(
+                "UPDATE users SET password_reset_code = NULL, password_reset_expires_at = NULL WHERE id = ?",
+                (user["id"],),
+            )
+            conn.commit()
+            conn.close()
+            return jsonify({
+                "success": False,
+                "error": "We could not send the password reset email. Please try again shortly."
+            }), 503
+
+        conn.close()
+        return jsonify(generic)
+    except Exception as exc:
+        return jsonify({"success": False, "error": str(exc)}), 500
+
+
+@auth_bp.route("/auth/reset-password", methods=["POST", "OPTIONS"])
+def reset_password():
+    if request.method == "OPTIONS":
+        return jsonify({"success": True}), 200
+
+    try:
+        data = request.json or {}
+        email = (data.get("email") or "").strip().lower()
+        code = (data.get("code") or "").strip()
+        new_password = data.get("new_password") or ""
+
+        if not email or not code or not new_password:
+            return jsonify({
+                "success": False,
+                "error": "Email, reset code, and new password are required."
+            }), 400
+        if len(new_password) < 8:
+            return jsonify({
+                "success": False,
+                "error": "Password must be at least 8 characters."
+            }), 400
+
+        conn = get_db()
+        user = conn.execute(
+            "SELECT * FROM users WHERE lower(email) = lower(?) LIMIT 1",
+            (email,),
+        ).fetchone()
+
+        if not user:
+            conn.close()
+            return jsonify({"success": False, "error": "Invalid or expired reset code."}), 400
+
+        expires_at = user["password_reset_expires_at"]
+        if (
+            not user["password_reset_code"]
+            or not secrets.compare_digest(str(user["password_reset_code"]), code)
+            or not expires_at
+            or datetime.utcnow() > datetime.fromisoformat(expires_at)
+        ):
+            conn.close()
+            return jsonify({"success": False, "error": "Invalid or expired reset code."}), 400
+
+        conn.execute(
+            """
+            UPDATE users
+            SET password_hash = ?, password_reset_code = NULL, password_reset_expires_at = NULL
+            WHERE id = ?
+            """,
+            (hash_password(new_password), user["id"]),
+        )
+        # Sign out every existing device/session after a password change.
+        conn.execute("DELETE FROM sessions WHERE user_id = ?", (user["id"],))
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "message": "Password reset successfully. You can now sign in with your new password."
+        })
     except Exception as exc:
         return jsonify({"success": False, "error": str(exc)}), 500
 
