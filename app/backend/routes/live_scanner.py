@@ -10,6 +10,7 @@ from utils.model_loader import load_model
 from utils.preprocessing import preprocess_input
 from utils.label_mapper import load_label_mapping
 from routes.history import get_db_connection
+from routes.auth import require_authenticated_user
 
 live_scanner_bp = Blueprint("live_scanner", __name__)
 
@@ -32,6 +33,9 @@ def extract_clean_host(target_input):
 
 @live_scanner_bp.route("/test-live-address", methods=["POST"])
 def test_live_address():
+    user, auth_error = require_authenticated_user()
+    if auth_error:
+        return auth_error
     """
     Real-Time Live Network Address Scanner & Feature Extractor.
     Probes live targets (google.com, spotify.com, speedtest.net, 8.8.8.8, custom IP/domain),
@@ -125,10 +129,11 @@ def test_live_address():
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO predictions (
-                    prediction, attack_type, confidence, timestamp,
+                    user_id, prediction, attack_type, confidence, timestamp,
                     source_ip, source_port, destination_ip, destination_port, packet_count
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
+                int(user["id"]),
                 prediction_label,
                 attack_type,
                 confidence_pct,
