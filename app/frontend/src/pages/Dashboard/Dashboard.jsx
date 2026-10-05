@@ -50,6 +50,12 @@ export default function Dashboard() {
 
   const isOnline = isDbOnline || isSystemOnline;
   const highRisk = history.filter((item) => item.prediction !== 0).length;
+  let monitoredCount = 0;
+  try {
+    monitoredCount = JSON.parse(localStorage.getItem('aegis_monitored_websites') || '[]').length;
+  } catch {
+    monitoredCount = 0;
+  }
 
   return (
     <div className="space-y-6">
@@ -85,7 +91,7 @@ export default function Dashboard() {
       </motion.section>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={Globe2} label="Monitored websites" value="0" subtext="Add a website to begin monitoring" tone="cyan" />
+        <MetricCard icon={Globe2} label="Monitored websites" value={monitoredCount.toString()} subtext={monitoredCount ? "Websites in this workspace" : "Add a website to begin monitoring"} tone="cyan" />
         <MetricCard icon={AlertTriangle} label="Suspicious events" value={threatCount.toString()} subtext="Flagged activity in this workspace" tone="rose" />
         <MetricCard icon={Activity} label="Traffic reviewed" value={totalCount.toString()} subtext="Observed requests and flows" tone="emerald" />
         <MetricCard icon={Eye} label="High-risk activity" value={highRisk.toString()} subtext="Items requiring review" tone="amber" />
