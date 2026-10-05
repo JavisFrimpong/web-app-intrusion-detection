@@ -222,6 +222,7 @@ def connect_website(website_id):
             "reachable": True,
             "message": "Website connection verified. Status monitoring is active; intrusion predictions require ML flow features.",
             "monitoring_mode": "status-only",
+            "ml_flow_ingest_url": f"https://aegis-ids-api.onrender.com/api/ingest/flow/{updated['site_key']}",
             "check": result,
         })
     finally:
