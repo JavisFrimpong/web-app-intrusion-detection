@@ -84,6 +84,30 @@ export const verifyCode = async (email, code) => {
   }
 };
 
+export const forgotPassword = async (email) => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/auth/forgot-password', { email });
+    return { success: true, ...response.data, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
+export const resetPassword = async (email, code, newPassword) => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/auth/reset-password', {
+      email,
+      code,
+      new_password: newPassword,
+    });
+    return { success: true, ...response.data, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
 export const login = async (email, password) => {
   const api = createApiClient();
   try {
