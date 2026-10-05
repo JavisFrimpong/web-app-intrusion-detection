@@ -12,8 +12,6 @@ export default function Websites() {
   const [connectingId, setConnectingId] = useState(null);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
-  const [setup, setSetup] = useState(null);
-  const [copied, setCopied] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -53,13 +51,7 @@ export default function Websites() {
       setError(res.details ? `${res.error} ${res.details}` : res.error);
       return;
     }
-    setMessage('Website verified. Add the one-line monitoring script to the website, then open the website once to activate live monitoring.');
-    setSetup({
-      website: res.website,
-      snippet: res.snippet,
-      script_url: res.script_url,
-    });
-    setCopied(false);
+    setMessage('Monitoring is active. AEGIS is now checking this website from the hosted service with no code installation required.');
     await load();
   };
 
@@ -83,9 +75,9 @@ export default function Websites() {
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">
             <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-300">Website monitoring</span>
-            <h1 className="mt-2 text-3xl font-black text-white">Add Website → Verify Website → Configure Monitoring</h1>
+            <h1 className="mt-2 text-3xl font-black text-white">Add Website → Connect Website → Monitor Website</h1>
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              Add a public website, verify that AEGIS can reach it, then complete the traffic-monitoring connection for that site.
+              Add a public website and let AEGIS monitor its availability, response behavior, and suspicious service conditions from the hosted monitoring service.
             </p>
           </div>
           <button onClick={()=>setOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 px-5 py-3 text-xs font-black text-slate-950 hover:brightness-110">
@@ -141,14 +133,14 @@ export default function Websites() {
                   {item.status === 'monitoring' ? (
                     <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5"/> Monitoring active</span>
                   ) : item.status === 'verified' ? (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold text-cyan-300"><CheckCircle2 className="h-3.5 w-3.5"/> Verified · setup script</span>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold text-cyan-300"><CheckCircle2 className="h-3.5 w-3.5"/> Connected</span>
                   ) : (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-300"><Clock3 className="h-3.5 w-3.5"/> Verification pending</span>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-300"><Clock3 className="h-3.5 w-3.5"/> Connection pending</span>
                   )}
 
                   <button onClick={()=>connect(item.id)} disabled={connectingId===item.id} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs font-bold text-slate-300 hover:border-cyan-400/30 hover:text-cyan-300 disabled:opacity-50">
                     {connectingId===item.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin"/> : <Link2 className="h-3.5 w-3.5"/>}
-                    {item.status === 'monitoring' ? 'Recheck website' : item.status === 'verified' ? 'Show setup' : 'Verify website'}
+                    {item.status === 'monitoring' ? 'Recheck website' : item.status === 'verified' ? 'Start monitoring' : 'Connect website'}
                   </button>
 
                   <button onClick={()=>remove(item.id)} className="rounded-xl border border-slate-800 bg-slate-950/40 p-2 text-slate-600 hover:border-rose-500/30 hover:text-rose-400" title="Remove website"><Trash2 className="h-3.5 w-3.5"/></button>
@@ -163,66 +155,13 @@ export default function Websites() {
         <div className="flex items-start gap-3">
           <Info className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300"/>
           <div>
-            <h3 className="text-sm font-bold text-white">What “verified” means</h3>
+            <h3 className="text-sm font-bold text-white">No client code required</h3>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              Verification confirms that the hosted AEGIS service can reach the website. It does not mean live client traffic is being observed yet. Live intrusion monitoring still requires the traffic-source/gateway integration for that website.
+              AEGIS now performs hosted external checks directly from the monitoring service. Your client does not need to download files, install software, or edit the website code. This mode monitors reachability, HTTP status, response latency, service failures, and related alerts.
             </p>
           </div>
         </div>
       </section>
-
-      {setup && (
-        <div className="fixed inset-0 z-[85] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-[28px] border border-cyan-500/20 bg-slate-900 p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-[.2em] text-cyan-300">Final connection step</span>
-                <h2 className="mt-2 text-2xl font-black text-white">Activate monitoring for {setup.website?.domain}</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Add this single script tag to the website's HTML. For React/Vite, place it in <span className="font-mono text-slate-300">index.html</span> before <span className="font-mono text-slate-300">&lt;/head&gt;</span>. Deploy the site, then open it once.
-                </p>
-              </div>
-              <button onClick={()=>setSetup(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-white"><X className="h-4 w-4"/></button>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950/80 p-4">
-              <code className="block break-all text-xs leading-6 text-cyan-200">{setup.snippet}</code>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                onClick={async ()=>{
-                  await navigator.clipboard.writeText(setup.snippet || '');
-                  setCopied(true);
-                }}
-                className="rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 px-4 py-2.5 text-xs font-black text-slate-950"
-              >
-                {copied ? 'Copied' : 'Copy monitoring script'}
-              </button>
-              <button
-                onClick={async ()=>{
-                  await load();
-                  const fresh = (await fetchWebsites());
-                  const current = fresh.websites?.find(x => x.id === setup.website?.id);
-                  if (current?.status === 'monitoring') {
-                    setMessage('Monitoring is active. Open Live Activity to see incoming events.');
-                    setSetup(null);
-                  } else {
-                    setMessage('AEGIS has not received telemetry yet. Deploy the script and visit the monitored website once, then check again.');
-                  }
-                }}
-                className="rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-2.5 text-xs font-bold text-slate-200 hover:border-cyan-500/30 hover:text-cyan-300"
-              >
-                Check activation
-              </button>
-            </div>
-
-            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-xs leading-5 text-slate-500">
-              The browser monitor records page views, request status/duration, failed requests, route changes, form-submit metadata, and client-side errors. It does not collect form values, passwords, or page content.
-            </div>
-          </div>
-        </div>
-      )}
 
       {open && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
