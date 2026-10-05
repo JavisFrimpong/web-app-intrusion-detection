@@ -1,24 +1,20 @@
-const { spawn } = require('child_process');
-const path = require('path');
-const open = require('open');
+import { spawn } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const projectRoot = path.resolve(__dirname, '../../');
 const backendDir = path.resolve(projectRoot, 'app/backend');
 const frontendDir = path.resolve(projectRoot, 'app/frontend');
 
 console.log('====================================================');
-echo('🚀 LAUNCHING AEGIS ENTERPRISE SOC PLATFORM');
+console.log('🚀 LAUNCHING AEGIS ENTERPRISE SOC PLATFORM');
 console.log('====================================================');
 
-const env = {
-  ...process.env,
-  SMTP_USER: 'spencer.mail.services@gmail.com',
-  SMTP_PASS: 'sbee ejrh cdos vfgx',
-};
+const env = { ...process.env };
 
-function echo(msg) { console.log(msg); }
-
-// Spawn Backend
 console.log('[1/2] Starting Flask Backend API (python app.py)...');
 const backendProcess = spawn('python', ['app.py'], {
   cwd: backendDir,
@@ -27,7 +23,6 @@ const backendProcess = spawn('python', ['app.py'], {
   stdio: 'inherit',
 });
 
-// Spawn Frontend
 console.log('[2/2] Starting Vite Frontend Console (npm run dev)...');
 const frontendProcess = spawn('npm', ['run', 'dev'], {
   cwd: frontendDir,
@@ -36,10 +31,18 @@ const frontendProcess = spawn('npm', ['run', 'dev'], {
   stdio: 'inherit',
 });
 
-// Open Browser after 3 seconds
 setTimeout(() => {
-  console.log('\n🌐 Opening AEGIS SOC Console at http://localhost:5173...\n');
-  import('open').then(m => m.default('http://localhost:5173')).catch(() => {});
+  const url = 'http://localhost:5173';
+  console.log(`\n🌐 AEGIS SOC Console: ${url}\n`);
+
+  const command =
+    process.platform === 'win32' ? 'start' :
+    process.platform === 'darwin' ? 'open' : 'xdg-open';
+
+  spawn(command, process.platform === 'win32' ? ['', url] : [url], {
+    shell: true,
+    stdio: 'ignore',
+  });
 }, 3000);
 
 process.on('SIGINT', () => {
