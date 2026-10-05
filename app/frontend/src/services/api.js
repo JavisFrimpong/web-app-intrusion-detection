@@ -21,16 +21,23 @@ export const setStoredApiUrl = (url) => {
 // Create Axios Instance
 const createApiClient = () => {
   const baseURL = getStoredApiUrl();
+  const token = localStorage.getItem('aegis_auth_token');
   return axios.create({
     baseURL,
     timeout: 20000,
-    withCredentials: true, // sends the login session cookie with every request
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
 };
+
+const saveToken = (token) => {
+  if (token) localStorage.setItem('aegis_auth_token', token);
+};
+
+const clearToken = () => localStorage.removeItem('aegis_auth_token');
 
 // ---------------------------------------------------------------------
 // Auth
@@ -60,6 +67,7 @@ export const verifyCode = async (email, code) => {
   const api = createApiClient();
   try {
     const response = await api.post('/auth/verify', { email, code });
+    saveToken(response.data.token);
     return { success: true, ...response.data, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.error || error.message };
@@ -70,6 +78,7 @@ export const login = async (email, password) => {
   const api = createApiClient();
   try {
     const response = await api.post('/auth/login', { email, password });
+    saveToken(response.data.token);
     return { success: true, ...response.data, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.error || error.message };
@@ -80,8 +89,10 @@ export const logout = async () => {
   const api = createApiClient();
   try {
     await api.post('/auth/logout');
+    clearToken();
     return { success: true };
   } catch (error) {
+    clearToken();
     return { success: false, error: error.response?.data?.error || error.message };
   }
 };
@@ -90,8 +101,9 @@ export const fetchCurrentUser = async () => {
   const api = createApiClient();
   try {
     const response = await api.get('/auth/me');
-    return { authenticated: true, email: response.data.email };
+    return { authenticated: true, user: response.data.user };
   } catch (error) {
+    if (error.response?.status === 401) clearToken();
     return { authenticated: false };
   }
 };
