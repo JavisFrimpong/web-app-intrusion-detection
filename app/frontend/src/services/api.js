@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Default API Base URL
-const DEFAULT_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://127.0.0.1:5000/api');
+const DEFAULT_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? 'https://aegis-ids-api.onrender.com/api' : 'http://127.0.0.1:5000/api');
 
 export const getStoredApiUrl = () => {
   const stored = localStorage.getItem('ids_api_url');
