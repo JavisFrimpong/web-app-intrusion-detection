@@ -63,9 +63,9 @@ export default function Websites() {
 
   const counts = useMemo(() => ({
     total: items.length,
-    verified: items.filter(x => x.status === 'verified' || x.status === 'monitoring').length,
+    connected: items.filter(x => ['connected','verified','monitoring'].includes(x.status)).length,
     monitoring: items.filter(x => x.status === 'monitoring').length,
-    pending: items.filter(x => x.status !== 'verified' && x.status !== 'monitoring').length,
+    pending: items.filter(x => !['connected','verified','monitoring'].includes(x.status)).length,
   }), [items]);
 
   return (
@@ -96,8 +96,8 @@ export default function Websites() {
       <section className="grid gap-4 sm:grid-cols-3">
         {[
           ['Websites', counts.total, Globe2, 'text-cyan-300'],
-          ['Monitoring', counts.monitoring, CheckCircle2, 'text-emerald-300'],
-          ['Setup pending', counts.pending + Math.max(0, counts.verified - counts.monitoring), Clock3, 'text-amber-300'],
+          ['Connected', counts.connected, CheckCircle2, 'text-emerald-300'],
+          ['ML traffic active', counts.monitoring, Clock3, 'text-cyan-300'],
         ].map(([label,value,Icon,color])=>(
           <div key={label} className="rounded-2xl border border-slate-800 bg-slate-900/65 p-5">
             <div className="flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500">{label}</span><Icon className={`h-4 w-4 ${color}`}/></div>
@@ -131,16 +131,16 @@ export default function Websites() {
 
                 <div className="flex flex-wrap items-center gap-3">
                   {item.status === 'monitoring' ? (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5"/> Monitoring active</span>
-                  ) : item.status === 'verified' ? (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold text-cyan-300"><CheckCircle2 className="h-3.5 w-3.5"/> Connected</span>
+                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5"/> ML traffic active</span>
+                  ) : ['connected','verified'].includes(item.status) ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold text-cyan-300"><CheckCircle2 className="h-3.5 w-3.5"/> Website connected</span>
                   ) : (
                     <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-300"><Clock3 className="h-3.5 w-3.5"/> Connection pending</span>
                   )}
 
                   <button onClick={()=>connect(item.id)} disabled={connectingId===item.id} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs font-bold text-slate-300 hover:border-cyan-400/30 hover:text-cyan-300 disabled:opacity-50">
                     {connectingId===item.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin"/> : <Link2 className="h-3.5 w-3.5"/>}
-                    {item.status === 'monitoring' ? 'Recheck website' : item.status === 'verified' ? 'Start monitoring' : 'Connect website'}
+                    {item.status === 'monitoring' ? 'Recheck website' : ['connected','verified'].includes(item.status) ? 'Recheck website' : 'Connect website'}
                   </button>
 
                   <button onClick={()=>remove(item.id)} className="rounded-xl border border-slate-800 bg-slate-950/40 p-2 text-slate-600 hover:border-rose-500/30 hover:text-rose-400" title="Remove website"><Trash2 className="h-3.5 w-3.5"/></button>
