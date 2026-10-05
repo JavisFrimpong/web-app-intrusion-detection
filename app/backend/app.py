@@ -56,7 +56,7 @@ def home():
         "message": "AEGIS IDS Backend API is running",
         "model": "Random Forest",
         "status": "active",
-        "inference_mode": "windows-sensor",
+        "inference_mode": "hosted-random-forest",
         "database": "PostgreSQL" if os.environ.get("DATABASE_URL") else "SQLite",
     })
 
