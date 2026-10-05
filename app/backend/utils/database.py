@@ -104,6 +104,7 @@ def initialize_database(db=None):
                     password_hash TEXT NOT NULL,
                     company TEXT,
                     verification_code TEXT,
+                    sensor_token TEXT UNIQUE,
                     is_verified INTEGER DEFAULT 0,
                     created_at TEXT
                 )
@@ -141,6 +142,8 @@ def initialize_database(db=None):
                     source_ip TEXT
                 )
             """)
+            db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sensor_token TEXT")
+            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_sensor_token ON users(sensor_token)")
             db.execute("ALTER TABLE predictions ADD COLUMN IF NOT EXISTS user_id INTEGER")
             db.execute("ALTER TABLE heuristic_alerts ADD COLUMN IF NOT EXISTS user_id INTEGER")
         else:
@@ -152,6 +155,7 @@ def initialize_database(db=None):
                     password_hash TEXT NOT NULL,
                     company TEXT,
                     verification_code TEXT,
+                    sensor_token TEXT UNIQUE,
                     is_verified INTEGER DEFAULT 0,
                     created_at TEXT
                 )
@@ -193,6 +197,9 @@ def initialize_database(db=None):
                 )
             """)
 
+            if "sensor_token" not in _sqlite_column_names(db, "users"):
+                db.execute("ALTER TABLE users ADD COLUMN sensor_token TEXT")
+            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_sensor_token ON users(sensor_token)")
             if "user_id" not in _sqlite_column_names(db, "predictions"):
                 db.execute("ALTER TABLE predictions ADD COLUMN user_id INTEGER")
             if "user_id" not in _sqlite_column_names(db, "heuristic_alerts"):
