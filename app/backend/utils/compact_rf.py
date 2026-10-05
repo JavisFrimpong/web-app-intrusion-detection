@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 ASSET_DIR = Path(__file__).resolve().parent.parent / "model_assets" / "rf_compact"
-PART_GLOB = "part_*.b64"
+PART_GLOB = "part_???.b64"
 
 
 class CompactRandomForest:
