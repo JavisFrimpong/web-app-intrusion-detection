@@ -21,7 +21,12 @@ POLL_SECONDS = 2.0
 if not API_URL:
     raise SystemExit(
         "AEGIS_API_URL is required. Example: "
-        "set AEGIS_API_URL=https://your-flask-service.onrender.com"
+        "set AEGIS_API_URL=https://aegis-ids-api.onrender.com"
+    )
+
+if not SENSOR_TOKEN:
+    raise SystemExit(
+        "AEGIS_SENSOR_TOKEN is required. Copy it from Dashboard > Settings > Windows Sensor Connection."
     )
 
 
