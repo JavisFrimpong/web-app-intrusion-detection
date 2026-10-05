@@ -55,6 +55,11 @@ def _classify_event(path, event_type):
 
 
 def _record_external_check(db, site):
+    """
+    Website status monitoring only. This function never creates intrusion
+    predictions; ML detections are written exclusively by the Random Forest
+    inference path after 78 flow features have been supplied.
+    """
     domain = site["domain"]
     candidates = [f"https://{domain}", f"http://{domain}"]
     if domain.startswith("localhost"):
@@ -63,13 +68,14 @@ def _record_external_check(db, site):
     response = None
     last_error = None
     started = time.perf_counter()
+
     for url in candidates:
         try:
             response = requests.get(
                 url,
                 timeout=10,
                 allow_redirects=True,
-                headers={"User-Agent": "AEGIS-External-Monitor/1.0"},
+                headers={"User-Agent": "AEGIS-Website-Status/1.0"},
             )
             break
         except Exception as exc:
@@ -79,70 +85,29 @@ def _record_external_check(db, site):
     now = datetime.utcnow().isoformat()
 
     if response is None:
-        prediction = 1
-        attack_type = "Website Unreachable"
-        confidence = 0.99
         http_status = None
         status = "unreachable"
         message = f"AEGIS could not reach {domain}: {last_error or 'connection failed'}"
     else:
         http_status = int(response.status_code)
-        status = "monitoring"
-        if http_status >= 500:
-            prediction = 1
-            attack_type = "Server Error"
-            confidence = 0.94
-            message = f"{domain} returned HTTP {http_status}"
-        elif elapsed_ms >= 5000:
-            prediction = 1
-            attack_type = "High Response Latency"
-            confidence = 0.82
-            message = f"{domain} responded in {elapsed_ms} ms"
-        else:
-            prediction = 0
-            attack_type = "BENIGN"
-            confidence = 0.99
-            message = f"{domain} reachable with HTTP {http_status} in {elapsed_ms} ms"
-
-    db.execute(
-        """
-        INSERT INTO predictions (
-            user_id, prediction, attack_type, confidence, timestamp,
-            source_ip, source_port, destination_ip, destination_port, packet_count
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            site["user_id"], prediction, attack_type, confidence, now,
-            "AEGIS External Monitor", 0, domain, 443, max(1, elapsed_ms),
-        ),
-    )
-
-    if prediction != 0:
-        db.execute(
-            """
-            INSERT INTO heuristic_alerts (user_id, alert_type, message, timestamp, source_ip)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (site["user_id"], attack_type, message, now, "AEGIS External Monitor"),
-        )
+        status = "connected"
+        message = f"{domain} reachable with HTTP {http_status} in {elapsed_ms} ms"
 
     db.execute(
         """
         UPDATE monitored_websites
-        SET status = ?, http_status = ?, last_checked_at = ?, last_event_at = ?
+        SET status = ?, http_status = ?, last_checked_at = ?
         WHERE id = ?
         """,
-        (status, http_status, now, now, site["id"]),
+        (status, http_status, now, site["id"]),
     )
     db.commit()
+
     return {
         "status": status,
         "http_status": http_status,
         "elapsed_ms": elapsed_ms,
         "message": message,
-        "prediction": prediction,
-        "attack_type": attack_type,
     }
 
 
@@ -174,7 +139,7 @@ def websites():
             ).fetchall()
 
             for site in rows:
-                if site["status"] in ("verified", "monitoring", "unreachable") and _external_check_due(site):
+                if site["status"] in ("connected", "verified", "monitoring", "unreachable") and _external_check_due(site):
                     try:
                         _record_external_check(db, site)
                     except Exception as exc:
@@ -255,8 +220,8 @@ def connect_website(website_id):
             "success": True,
             "website": _serialize(updated),
             "reachable": True,
-            "message": "External monitoring is active. No client-side code installation is required.",
-            "monitoring_mode": "external",
+            "message": "Website connection verified. Status monitoring is active; intrusion predictions require ML flow features.",
+            "monitoring_mode": "status-only",
             "check": result,
         })
     finally:
@@ -414,6 +379,11 @@ def sdk():
 @websites_bp.route("/telemetry/<site_key>", methods=["POST", "OPTIONS"])
 @cross_origin(origins="*")
 def telemetry(site_key):
+    """
+    Optional browser telemetry heartbeat. It does not create ML intrusion
+    predictions because browser events do not contain the 78 CICIDS2017 flow
+    features expected by the trained Random Forest.
+    """
     if request.method == "OPTIONS":
         return jsonify({"success": True}), 200
 
@@ -426,59 +396,18 @@ def telemetry(site_key):
         if not site:
             return jsonify({"success": False, "error": "Unknown site key."}), 404
 
-        data = request.get_json(silent=True) or {}
-        event_type = (data.get("event_type") or "request")[:64]
-        request_url = (data.get("request_url") or data.get("page_url") or data.get("path") or "")[:2000]
-        method = (data.get("method") or "GET")[:16]
-        status_code = data.get("status")
-        duration_ms = data.get("duration_ms")
         now = datetime.utcnow().isoformat()
-
-        pred, attack_type, confidence = _classify_event(request_url, event_type)
-
-        source_ip = (
-            request.headers.get("CF-Connecting-IP")
-            or request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
-            or request.remote_addr
-            or "unknown"
-        )
-
-        packet_count = 1
-        try:
-            packet_count = max(1, int(duration_ms or 1))
-        except Exception:
-            packet_count = 1
-
         db.execute(
-            """
-            INSERT INTO predictions (
-                user_id, prediction, attack_type, confidence, timestamp,
-                source_ip, source_port, destination_ip, destination_port, packet_count
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                site["user_id"], pred, attack_type, confidence, now,
-                source_ip, 0, site["domain"], 443, packet_count,
-            ),
-        )
-
-        if pred != 0:
-            message = f"{attack_type} pattern observed on {site['domain']} via {method} {request_url[:220]}"
-            db.execute(
-                """
-                INSERT INTO heuristic_alerts (user_id, alert_type, message, timestamp, source_ip)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (site["user_id"], attack_type, message, now, source_ip),
-            )
-
-        db.execute(
-            "UPDATE monitored_websites SET status = 'monitoring', last_event_at = ? WHERE id = ?",
+            "UPDATE monitored_websites SET last_event_at = ? WHERE id = ?",
             (now, site["id"]),
         )
         db.commit()
 
-        return jsonify({"success": True, "classification": attack_type, "suspicious": bool(pred)})
+        return jsonify({
+            "success": True,
+            "accepted": True,
+            "ml_prediction_created": False,
+            "message": "Telemetry heartbeat recorded. ML inference requires 78 flow features.",
+        }), 202
     finally:
         db.close()
