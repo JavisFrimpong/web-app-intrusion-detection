@@ -159,7 +159,7 @@ export default function DetectionTable({ detections = [], limit = null, title = 
                           ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                           : 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-[0_0_10px_rgba(244,63,94,0.3)]'
                       }`}>
-                        {item.status || (isBenign ? 'CLEAN' : 'BLOCKED')}
+                        {item.status || (isBenign ? 'CLEAN' : 'DETECTED')}
                       </span>
                     </td>
                   </tr>
