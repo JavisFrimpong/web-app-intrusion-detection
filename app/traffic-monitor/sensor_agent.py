@@ -93,7 +93,7 @@ def start_capture(target, user_id):
     return proc, host, target_ip
 
 
-def heartbeat(proc, target, target_ip):
+def heartbeat(proc, target, target_ip, user_id):
     running = proc is not None and proc.poll() is None
     payload = {
         "sensor_id": SENSOR_ID,
@@ -103,6 +103,7 @@ def heartbeat(proc, target, target_ip):
         "running": running,
         "target": target if running else None,
         "target_ip": target_ip if running else None,
+        "user_id": user_id if running else None,
     }
     response = requests.post(
         f"{API_URL}/api/sensor/heartbeat",
@@ -136,6 +137,7 @@ def main():
     proc = None
     target = None
     target_ip = None
+    active_user_id = None
     last_command_id = 0
     last_heartbeat = 0.0
 
@@ -151,7 +153,7 @@ def main():
 
             if now - last_heartbeat >= 4:
                 try:
-                    heartbeat(proc, target, target_ip)
+                    heartbeat(proc, target, target_ip, active_user_id)
                     last_heartbeat = now
                 except Exception as exc:
                     print("Heartbeat failed:", exc)
@@ -172,6 +174,7 @@ def main():
                         proc = stop_capture(proc)
                         print("Starting monitoring for:", requested_target, "account:", requested_user_id)
                         proc, target, target_ip = start_capture(requested_target, requested_user_id)
+                        active_user_id = int(requested_user_id)
                         print("Monitoring target IP:", target_ip)
 
                     elif command == "stop":
@@ -179,6 +182,7 @@ def main():
                         proc = stop_capture(proc)
                         target = None
                         target_ip = None
+                        active_user_id = None
                         print("Monitoring stopped.")
 
             except Exception as exc:
@@ -191,7 +195,7 @@ def main():
     finally:
         stop_capture(proc)
         try:
-            heartbeat(None, None, None)
+            heartbeat(None, None, None, None)
         except Exception:
             pass
 
