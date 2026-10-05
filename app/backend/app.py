@@ -30,10 +30,8 @@ CORS(
     origins=allowed_origins,
 )
 
-# Try loading the model at startup. Missing assets no longer crash Flask.
+# Initialize the persistent database schema at startup.
 initialize_database()
-
-model = load_model()
 
 # Register API routes
 app.register_blueprint(prediction_bp, url_prefix="/api")
