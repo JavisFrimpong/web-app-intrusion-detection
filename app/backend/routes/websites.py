@@ -214,8 +214,28 @@ def sdk():
         return Response("", status=204)
 
     site_key = (request.args.get("site") or "").strip()
+    domain = _normalize_domain(request.args.get("domain"))
+
+    if not site_key and domain:
+        db = get_db()
+        try:
+            row = db.execute(
+                "SELECT * FROM monitored_websites WHERE domain = ? ORDER BY id DESC LIMIT 1",
+                (domain,),
+            ).fetchone()
+            if row:
+                site_key = row["site_key"] or secrets.token_urlsafe(24)
+                if not row["site_key"]:
+                    db.execute(
+                        "UPDATE monitored_websites SET site_key = ? WHERE id = ?",
+                        (site_key, row["id"]),
+                    )
+                    db.commit()
+        finally:
+            db.close()
+
     if not site_key:
-        return Response("console.warn('AEGIS: missing site key');", mimetype="application/javascript")
+        return Response("console.warn('AEGIS: monitored website not found');", mimetype="application/javascript")
 
     js = f"""
 (function() {{
