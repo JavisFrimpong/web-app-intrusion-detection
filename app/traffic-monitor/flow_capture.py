@@ -1,6 +1,7 @@
 import os
 import signal
 import time
+import requests
 from collections import defaultdict, deque
 from datetime import datetime
 
@@ -47,6 +48,65 @@ MIN_FLOW_PACKETS = 1
 # button in the web dashboard, which sends CTRL_BREAK_EVENT ->
 # SIGBREAK -> KeyboardInterrupt on Windows, see handler below).
 TOTAL_DURATION = float("inf")
+
+# Optional remote AEGIS API. When configured, packet capture stays on the
+# Windows/Npcap sensor, while the hosted Flask API performs Random Forest
+# inference and stores the final detections for the Vercel dashboard.
+REMOTE_API_URL = (os.environ.get("AEGIS_API_URL") or "").rstrip("/")
+SENSOR_TOKEN = os.environ.get("AEGIS_SENSOR_TOKEN") or ""
+
+def _sensor_headers():
+    headers = {"Content-Type": "application/json"}
+    if SENSOR_TOKEN:
+        headers["X-Aegis-Sensor-Token"] = SENSOR_TOKEN
+    return headers
+
+def remote_classify(features):
+    if not REMOTE_API_URL:
+        return None
+    response = requests.post(
+        f"{REMOTE_API_URL}/api/sensor/classify",
+        json={"features": features},
+        headers=_sensor_headers(),
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not payload.get("success"):
+        raise RuntimeError(payload.get("error") or "Remote classification failed")
+    return {
+        "prediction": int(payload["prediction"]),
+        "attack_type": payload["attack_type"],
+        "confidence": float(payload["confidence"]),
+    }
+
+def remote_store_result(result, final_verdict, heuristic_alerts, timestamp,
+                        source_ip, source_port, destination_ip, destination_port,
+                        packet_count):
+    if not REMOTE_API_URL:
+        return False
+    response = requests.post(
+        f"{REMOTE_API_URL}/api/sensor/result",
+        json={
+            "prediction": result["prediction"],
+            "attack_type": final_verdict,
+            "confidence": result["confidence"],
+            "timestamp": timestamp,
+            "source_ip": source_ip,
+            "source_port": source_port,
+            "destination_ip": destination_ip,
+            "destination_port": destination_port,
+            "packet_count": packet_count,
+            "alerts": heuristic_alerts,
+        },
+        headers=_sensor_headers(),
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not payload.get("success"):
+        raise RuntimeError(payload.get("error") or "Remote result upload failed")
+    return True
 
 
 # ============================================================
@@ -405,7 +465,12 @@ def close_flow(flow_key, flow_state, reason):
         return False
 
     try:
-        result = predict_flow(features)
+        if REMOTE_API_URL:
+            result = remote_classify(features)
+            print("Prediction source: hosted Flask API")
+        else:
+            result = predict_flow(features)
+            print("Prediction source: local fallback model")
     except Exception as error:
         print("Prediction failed:", f"{type(error).__name__}: {error}")
         return False
@@ -460,19 +525,33 @@ def close_flow(flow_key, flow_state, reason):
     print("FINAL VERDICT:", final_verdict)
 
     try:
-        update_prediction(
-            prediction=result["prediction"],
-            attack_type=final_verdict,
-            confidence=result["confidence"],
-            source_ip=source_ip,
-            source_port=source_port,
-            destination_ip=destination_ip,
-            destination_port=destination_port,
-            packet_count=len(packets)
-        )
-        print("Prediction saved to database.")
+        if REMOTE_API_URL:
+            remote_store_result(
+                result=result,
+                final_verdict=final_verdict,
+                heuristic_alerts=heuristic_alerts,
+                timestamp=timestamp,
+                source_ip=source_ip,
+                source_port=source_port,
+                destination_ip=destination_ip,
+                destination_port=destination_port,
+                packet_count=len(packets),
+            )
+            print("Prediction uploaded to hosted AEGIS API.")
+        else:
+            update_prediction(
+                prediction=result["prediction"],
+                attack_type=final_verdict,
+                confidence=result["confidence"],
+                source_ip=source_ip,
+                source_port=source_port,
+                destination_ip=destination_ip,
+                destination_port=destination_port,
+                packet_count=len(packets)
+            )
+            print("Prediction saved to local database.")
     except Exception as error:
-        print("Database storage failed:", f"{type(error).__name__}: {error}")
+        print("Prediction storage failed:", f"{type(error).__name__}: {error}")
         return False
 
     return True
