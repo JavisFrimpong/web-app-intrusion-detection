@@ -37,7 +37,14 @@ const saveToken = (token) => {
   if (token) localStorage.setItem('aegis_auth_token', token);
 };
 
-const clearToken = () => localStorage.removeItem('aegis_auth_token');
+const saveUser = (user) => {
+  if (user) localStorage.setItem('aegis_user_profile', JSON.stringify(user));
+};
+
+const clearSession = () => {
+  localStorage.removeItem('aegis_auth_token');
+  localStorage.removeItem('aegis_user_profile');
+};
 
 // ---------------------------------------------------------------------
 // Auth
@@ -48,6 +55,7 @@ export const signup = async (email, password, username, company) => {
   try {
     const response = await api.post('/auth/signup', { email, password, name: username, username, company });
     saveToken(response.data.token);
+    saveUser(response.data.user);
     return { success: true, ...response.data, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.error || error.message };
@@ -69,6 +77,7 @@ export const verifyCode = async (email, code) => {
   try {
     const response = await api.post('/auth/verify', { email, code });
     saveToken(response.data.token);
+    saveUser(response.data.user);
     return { success: true, ...response.data, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.error || error.message };
@@ -80,6 +89,7 @@ export const login = async (email, password) => {
   try {
     const response = await api.post('/auth/login', { email, password });
     saveToken(response.data.token);
+    saveUser(response.data.user);
     return { success: true, ...response.data, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.error || error.message };
@@ -90,10 +100,10 @@ export const logout = async () => {
   const api = createApiClient();
   try {
     await api.post('/auth/logout');
-    clearToken();
+    clearSession();
     return { success: true };
   } catch (error) {
-    clearToken();
+    clearSession();
     return { success: false, error: error.response?.data?.error || error.message };
   }
 };
@@ -102,9 +112,10 @@ export const fetchCurrentUser = async () => {
   const api = createApiClient();
   try {
     const response = await api.get('/auth/me');
+    saveUser(response.data.user);
     return { authenticated: true, user: response.data.user };
   } catch (error) {
-    if (error.response?.status === 401) clearToken();
+    if (error.response?.status === 401) clearSession();
     return { authenticated: false };
   }
 };
@@ -255,5 +266,30 @@ export const clearDetectionHistory = async () => {
       error: error.message,
       isOnline: false,
     };
+  }
+};
+
+
+// ---------------------------------------------------------------------
+// Per-account Windows sensor configuration
+// ---------------------------------------------------------------------
+
+export const fetchSensorConfig = async () => {
+  const api = createApiClient();
+  try {
+    const response = await api.get('/auth/sensor-config');
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
+export const regenerateSensorToken = async () => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/auth/sensor-config');
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
   }
 };
