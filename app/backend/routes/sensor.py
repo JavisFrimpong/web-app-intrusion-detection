@@ -26,6 +26,7 @@ _state = {
     "running": False,
     "target": None,
     "target_ip": None,
+    "active_user_id": None,
     "started_at": None,
     "command_id": 0,
     "command": "idle",
@@ -101,6 +102,7 @@ def sensor_heartbeat():
         _state["running"] = bool(data.get("running", False))
         _state["target"] = data.get("target")
         _state["target_ip"] = data.get("target_ip")
+        _state["active_user_id"] = data.get("user_id") if _state["running"] else None
         if _state["running"] and not _state["started_at"]:
             _state["started_at"] = time.time()
         elif not _state["running"]:
