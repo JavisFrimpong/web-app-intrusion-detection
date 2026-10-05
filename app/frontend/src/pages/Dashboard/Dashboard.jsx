@@ -61,7 +61,7 @@ export default function Dashboard() {
             </h1>
 
             <p className="text-xs sm:text-base text-slate-200 font-sans leading-relaxed font-medium">
-              Real-time anomaly detection and web attack classification powered by a trained <strong className="text-cyan-300 font-mono font-bold">Random Forest ML model</strong> connected to production API engine.
+              Real-time anomaly detection and web attack classification powered by a trained <strong className="text-cyan-300 font-mono font-bold">Random Forest ML model</strong> running on the authenticated Windows sensor, with telemetry synchronized to the hosted API.
             </p>
           </div>
 
@@ -82,18 +82,18 @@ export default function Dashboard() {
         <StatusCard
           title="System Status"
           value={status === 'active' || isApiConnected ? 'ACTIVE' : 'STANDBY'}
-          subtext="IDS Shield Enabled"
+          subtext="Detection Engine Active"
           icon={ShieldCheck}
           color="emerald"
           badge={{
-            text: 'LIVE PROTECTION',
+            text: 'LIVE MONITORING',
             className: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
           }}
         />
 
         <StatusCard
           title="Detection Accuracy"
-          value="99.20%"
+          value="99.7%"
           subtext="Test Set Validation"
           icon={TrendingUp}
           color="cyan"
@@ -101,9 +101,9 @@ export default function Dashboard() {
         />
 
         <StatusCard
-          title="Threats Intercepted"
+          title="Threats Detected"
           value={threatCount.toString()}
-          subtext="Attacks Intercepted"
+          subtext="Malicious Flows Detected"
           icon={ShieldAlert}
           color="red"
           badge={{
@@ -182,26 +182,26 @@ export default function Dashboard() {
               Random Forest Classifier
             </h3>
             <p className="text-xs text-slate-400 mt-2 font-sans leading-relaxed">
-              Trained on 78 extracted features of the benchmark <strong className="text-slate-200">CICIDS2017 dataset</strong>. Provides sub-10ms inference time per packet vector.
+              Trained on 78 extracted features of the benchmark <strong className="text-slate-200">CICIDS2017 dataset</strong>. Classifies captured CICIDS2017-aligned flow vectors on the connected sensor.
             </p>
           </div>
 
           <div className="space-y-2.5 pt-3 border-t border-slate-800 font-mono text-xs">
             <div className="flex justify-between text-slate-300">
               <span className="text-slate-400">Precision:</span>
-              <span className="text-emerald-400 font-bold">99.14%</span>
+              <span className="text-emerald-400 font-bold">99.85%</span>
             </div>
             <div className="flex justify-between text-slate-300">
               <span className="text-slate-400">Recall / Sensitivity:</span>
-              <span className="text-emerald-400 font-bold">99.28%</span>
+              <span className="text-emerald-400 font-bold">99.71%</span>
             </div>
             <div className="flex justify-between text-slate-300">
               <span className="text-slate-400">F1-Score:</span>
-              <span className="text-cyan-400 font-bold">99.21%</span>
+              <span className="text-cyan-400 font-bold">99.76%</span>
             </div>
             <div className="flex justify-between text-slate-300">
-              <span className="text-slate-400">False Alarm Rate:</span>
-              <span className="text-emerald-400 font-bold">0.76%</span>
+              <span className="text-slate-400">Validation Accuracy:</span>
+              <span className="text-emerald-400 font-bold">99.71%</span>
             </div>
           </div>
         </div>
