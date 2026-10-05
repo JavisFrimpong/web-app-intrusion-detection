@@ -30,6 +30,7 @@ _state = {
     "command_id": 0,
     "command": "idle",
     "command_target": None,
+    "command_user_id": None,
 }
 
 
@@ -68,11 +69,12 @@ def get_sensor_state():
     return snapshot
 
 
-def queue_sensor_command(command, target=None):
+def queue_sensor_command(command, target=None, user_id=None):
     with _lock:
         _state["command_id"] += 1
         _state["command"] = command
         _state["command_target"] = target
+        _state["command_user_id"] = int(user_id) if user_id is not None else None
         command_id = _state["command_id"]
     return command_id
 
@@ -126,6 +128,7 @@ def sensor_command():
             "command_id": _state["command_id"],
             "command": _state["command"],
             "target": _state["command_target"],
+            "user_id": _state["command_user_id"],
         })
 
 
@@ -166,7 +169,7 @@ def sensor_result():
         return auth_error
 
     data = request.get_json(silent=True) or {}
-    required = ["prediction", "attack_type", "confidence", "source_ip", "destination_ip"]
+    required = ["user_id", "prediction", "attack_type", "confidence", "source_ip", "destination_ip"]
     missing = [key for key in required if key not in data]
     if missing:
         return jsonify({"success": False, "error": "Missing fields: " + ", ".join(missing)}), 400
@@ -179,11 +182,12 @@ def sensor_result():
         cur.execute(
             """
             INSERT INTO predictions (
-                prediction, attack_type, confidence, timestamp,
+                user_id, prediction, attack_type, confidence, timestamp,
                 source_ip, source_port, destination_ip, destination_port, packet_count
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                int(data["user_id"]),
                 int(data["prediction"]),
                 str(data["attack_type"]),
                 float(data["confidence"]),
@@ -199,10 +203,11 @@ def sensor_result():
         for alert in data.get("alerts") or []:
             cur.execute(
                 """
-                INSERT INTO heuristic_alerts (alert_type, message, timestamp, source_ip)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO heuristic_alerts (user_id, alert_type, message, timestamp, source_ip)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 (
+                    int(data["user_id"]),
                     str(alert.get("type") or "HEURISTIC"),
                     str(alert.get("message") or ""),
                     timestamp,
