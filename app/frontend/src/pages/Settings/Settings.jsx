@@ -79,11 +79,14 @@ export default function Settings() {
   const { isOnline: isDbOnline, clearHistory, totalCount } = useDetectionHistory(0);
 
   const handleDeleteAccount = async () => {
-    const userEmail = currentUser?.email || deleteEmailInput.trim();
-    if (!userEmail) {
-      setDeleteError('Please enter your account email to confirm deletion.');
+    const expectedEmail = (currentUser?.email || '').trim().toLowerCase();
+    const confirmationEmail = deleteEmailInput.trim().toLowerCase();
+
+    if (!expectedEmail || confirmationEmail !== expectedEmail) {
+      setDeleteError('Enter the exact email address for this account to confirm deletion.');
       return;
     }
+
     setDeletingAccount(true);
     setDeleteError(null);
     const res = await deleteUserAccount();
@@ -363,7 +366,7 @@ export default function Settings() {
               />
               <button
                 onClick={handleDeleteAccount}
-                disabled={deletingAccount || (!currentUser?.email && !deleteEmailInput.trim())}
+                disabled={deletingAccount || !deleteEmailInput.trim()}
                 className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-50 shrink-0 shadow-lg shadow-rose-600/30"
               >
                 {deletingAccount ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Trash2 className="w-4 h-4 shrink-0" />}
