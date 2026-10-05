@@ -168,43 +168,56 @@ def register():
 
         if existing:
             conn.close()
+            if int(existing["is_verified"] or 0) == 1:
+                return jsonify({
+                    "success": False,
+                    "error": "An account with this email already exists. Please sign in instead."
+                }), 409
             return jsonify({
                 "success": False,
-                "error": "An account with this email already exists. Please sign in instead."
+                "error": "This email already has an account awaiting verification. Enter the code previously sent or request a new one.",
+                "requires_verification": True,
+                "email": email,
             }), 409
+
+        otp = generate_otp_code()
+        expires_at = (datetime.utcnow() + timedelta(minutes=10)).isoformat()
 
         conn.execute("""
             INSERT INTO users (
                 name, email, password_hash, company, verification_code,
-                sensor_token, is_verified, created_at
+                verification_expires_at, sensor_token, is_verified, created_at
             )
-            VALUES (?, ?, ?, ?, NULL, ?, 1, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)
         """, (
             name,
             email,
             hash_password(password),
             company,
+            otp,
+            expires_at,
             secrets.token_urlsafe(32),
             datetime.utcnow().isoformat(),
         ))
         conn.commit()
-        user = conn.execute(
-            "SELECT * FROM users WHERE lower(email) = lower(?) LIMIT 1", (email,)
-        ).fetchone()
-        token = create_session(conn, user["id"])
-        conn.close()
 
+        email_sent = send_verification_email(email, name, otp)
+        if not email_sent:
+            # Do not leave a dead, unusable account if delivery is not configured.
+            conn.execute("DELETE FROM users WHERE lower(email) = lower(?) AND is_verified = 0", (email,))
+            conn.commit()
+            conn.close()
+            return jsonify({
+                "success": False,
+                "error": "We could not send the verification email. Please try again shortly."
+            }), 503
+
+        conn.close()
         return jsonify({
             "success": True,
-            "message": "Account created successfully.",
-            "token": token,
-            "user": {
-                "id": user["id"],
-                "name": user["name"],
-                "email": user["email"],
-                "company": user["company"],
-                "is_verified": True,
-            },
+            "message": f"A 6-digit verification code was sent to {email}.",
+            "email": email,
+            "requires_verification": True,
         }), 201
     except Exception as exc:
         message = str(exc).lower()
@@ -246,8 +259,16 @@ def verify_code():
             conn.close()
             return jsonify({"success": False, "error": "Invalid verification code."}), 400
 
+        expires_at = user["verification_expires_at"]
+        if not expires_at or datetime.utcnow() > datetime.fromisoformat(expires_at):
+            conn.close()
+            return jsonify({
+                "success": False,
+                "error": "This verification code has expired. Request a new code."
+            }), 400
+
         conn.execute(
-            "UPDATE users SET is_verified = 1, verification_code = NULL WHERE id = ?",
+            "UPDATE users SET is_verified = 1, verification_code = NULL, verification_expires_at = NULL WHERE id = ?",
             (user["id"],),
         )
         token = create_session(conn, user["id"])
@@ -291,7 +312,11 @@ def resend_code():
             return jsonify({"success": False, "error": "This account is already verified. Please sign in."}), 409
 
         otp = generate_otp_code()
-        conn.execute("UPDATE users SET verification_code = ? WHERE id = ?", (otp, user["id"]))
+        expires_at = (datetime.utcnow() + timedelta(minutes=10)).isoformat()
+        conn.execute(
+            "UPDATE users SET verification_code = ?, verification_expires_at = ? WHERE id = ?",
+            (otp, expires_at, user["id"])
+        )
         conn.commit()
         conn.close()
 
@@ -342,11 +367,13 @@ def login():
             user = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
 
         if int(user["is_verified"] or 0) != 1:
-            conn.execute(
-                "UPDATE users SET is_verified = 1, verification_code = NULL WHERE id = ?",
-                (user["id"],),
-            )
-            conn.commit()
+            conn.close()
+            return jsonify({
+                "success": False,
+                "error": "Please verify your email before signing in.",
+                "requires_verification": True,
+                "email": email,
+            }), 403
 
         token = create_session(conn, user["id"])
         conn.close()
