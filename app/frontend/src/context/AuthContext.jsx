@@ -9,8 +9,9 @@ export function AuthProvider({ children }) {
 
   const checkSession = useCallback(async () => {
     const res = await fetchCurrentUser();
-    setUser(res.authenticated ? { email: res.email } : null);
+    setUser(res.authenticated ? res.user : null);
     setLoading(false);
+    return res;
   }, []);
 
   useEffect(() => {
@@ -20,14 +21,18 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     const res = await apiLogin(email, password);
     if (res.success) {
-      setUser({ email: res.data.email });
+      setUser(res.data?.user || res.user || null);
     }
     return res;
   };
 
-  // Called after a successful signup+verify flow, since that also
-  // establishes a session on the backend.
-  const setSessionUser = (email) => setUser({ email });
+  const setSessionUser = (sessionUser) => {
+    if (typeof sessionUser === 'string') {
+      setUser({ email: sessionUser });
+    } else {
+      setUser(sessionUser || null);
+    }
+  };
 
   const logout = async () => {
     await apiLogout();
