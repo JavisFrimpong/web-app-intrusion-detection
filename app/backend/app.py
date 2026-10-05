@@ -9,6 +9,7 @@ from routes.history import history_bp
 from routes.live_scanner import live_scanner_bp
 from routes.auth import auth_bp
 from routes.sensor import sensor_bp
+from utils.database import initialize_database
 
 
 app = Flask(__name__)
@@ -32,6 +33,8 @@ CORS(
 )
 
 # Try loading the model at startup. Missing assets no longer crash Flask.
+initialize_database()
+
 model = load_model()
 
 # Register API routes
