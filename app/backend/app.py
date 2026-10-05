@@ -16,6 +16,8 @@ app = Flask(__name__)
 frontend_origin = (os.environ.get("FRONTEND_ORIGIN") or "").strip()
 allowed_origins = [
     "https://web-app-intrusion-detection.vercel.app",
+    r"https://web-app-intrusion-detection-[a-z0-9-]+-javis-frimpongs-projects\.vercel\.app",
+    r"https://web-app-intrusion-detection-git-[a-z0-9-]+-javis-frimpongs-projects\.vercel\.app",
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
@@ -26,8 +28,10 @@ if frontend_origin and frontend_origin not in allowed_origins:
 
 CORS(
     app,
-    supports_credentials=True,
+    supports_credentials=False,
     origins=allowed_origins,
+    allow_headers=["Content-Type", "Authorization", "X-Aegis-Sensor-Token"],
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 )
 
 # Initialize the persistent database schema at startup.
