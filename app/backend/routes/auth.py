@@ -3,6 +3,7 @@ import random
 import hashlib
 import secrets
 import smtplib
+import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
@@ -23,6 +24,8 @@ SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "AEGIS SOC <onboarding@resend.dev>")
 
 SESSION_DAYS = 14
 
@@ -96,6 +99,38 @@ def require_authenticated_user():
     return user, None
 
 
+def _send_email_via_resend(recipient_email, subject, text_body, html_body):
+    if not RESEND_API_KEY:
+        return False
+
+    try:
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": EMAIL_FROM,
+                "to": [recipient_email],
+                "subject": subject,
+                "text": text_body,
+                "html": html_body,
+            },
+            timeout=15,
+        )
+
+        if response.ok:
+            print(f"[AEGIS] Resend email accepted for {recipient_email}")
+            return True
+
+        print(f"[AEGIS] Resend API error {response.status_code}: {response.text}")
+        return False
+    except Exception as exc:
+        print(f"[AEGIS] Resend request error: {exc}")
+        return False
+
+
 def _send_email_via_smtp(recipient_email, subject, text_body, html_body):
     if not SMTP_USER or not SMTP_PASS:
         print(f"[AEGIS] SMTP credentials are not configured for {recipient_email}")
@@ -162,6 +197,10 @@ def send_verification_email(recipient_email, recipient_name, otp_code):
         </html>
         """
 
+    if _send_email_via_resend(recipient_email, subject, text_body, html_body):
+        return True
+    if _send_email_via_resend(recipient_email, subject, text_body, html_body):
+        return True
     return _send_email_via_smtp(recipient_email, subject, text_body, html_body)
 
 
