@@ -1,27 +1,25 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "frontend": {
-      "root": "app/frontend/"
-    },
-    "backend": {
-      "root": "app/backend/",
-      "framework": "flask",
-      "entrypoint": "app:app"
+  "version": 2,
+  "installCommand": "cd app/frontend && npm install",
+  "buildCommand": "cd app/frontend && npm run build",
+  "outputDirectory": "app/frontend/dist",
+  "functions": {
+    "api/index.py": {
+      "runtime": "python3.12"
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": {
-        "service": "backend"
-      }
+      "src": "/api/(.*)",
+      "dest": "/api/index.py"
     },
     {
-      "source": "/(.*)",
-      "destination": {
-        "service": "frontend"
-      }
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
