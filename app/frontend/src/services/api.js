@@ -47,6 +47,7 @@ export const signup = async (email, password, username, company) => {
   const api = createApiClient();
   try {
     const response = await api.post('/auth/signup', { email, password, name: username, username, company });
+    saveToken(response.data.token);
     return { success: true, ...response.data, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.error || error.message };
