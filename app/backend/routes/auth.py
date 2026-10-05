@@ -2,9 +2,7 @@ import os
 import random
 import hashlib
 import secrets
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -19,10 +17,9 @@ DB_PATH = os.environ.get("AEGIS_DB_PATH") or (
     else os.path.abspath(os.path.join(BACKEND_DIR, "../traffic-monitor/predictions.db"))
 )
 
-SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
-SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASS = os.environ.get("SMTP_PASS", "")
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
+BREVO_SENDER_EMAIL = os.environ.get("BREVO_SENDER_EMAIL", "")
+BREVO_SENDER_NAME = os.environ.get("BREVO_SENDER_NAME", "AEGIS SOC")
 
 SESSION_DAYS = 14
 
@@ -96,48 +93,41 @@ def require_authenticated_user():
     return user, None
 
 
-def _send_email_via_smtp(recipient_email, subject, text_body, html_body):
-    if not SMTP_USER or not SMTP_PASS:
-        print(f"[AEGIS] SMTP credentials are not configured for {recipient_email}")
+def _send_email_via_brevo(recipient_email, subject, text_body, html_body):
+    if not BREVO_API_KEY or not BREVO_SENDER_EMAIL:
+        print(f"[AEGIS] Brevo API is not configured for {recipient_email}")
         return False
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"AEGIS Enterprise Security <{SMTP_USER}>"
-    msg["To"] = recipient_email
-    msg.attach(MIMEText(text_body, "plain"))
-    msg.attach(MIMEText(html_body, "html"))
+    try:
+        response = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "accept": "application/json",
+                "api-key": BREVO_API_KEY,
+                "content-type": "application/json",
+            },
+            json={
+                "sender": {
+                    "name": BREVO_SENDER_NAME,
+                    "email": BREVO_SENDER_EMAIL,
+                },
+                "to": [{"email": recipient_email}],
+                "subject": subject,
+                "textContent": text_body,
+                "htmlContent": html_body,
+            },
+            timeout=15,
+        )
 
-    # Try the configured SMTP port first. For Gmail, automatically fall back
-    # between STARTTLS (587) and implicit TLS (465).
-    ports = [SMTP_PORT]
-    if SMTP_SERVER == "smtp.gmail.com":
-        for port in (465, 587):
-            if port not in ports:
-                ports.append(port)
-
-    last_error = None
-    for port in ports:
-        try:
-            if int(port) == 465:
-                server = smtplib.SMTP_SSL(SMTP_SERVER, int(port), timeout=10)
-            else:
-                server = smtplib.SMTP(SMTP_SERVER, int(port), timeout=10)
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
-
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(SMTP_USER, [recipient_email], msg.as_string())
-            server.quit()
-            print(f"[AEGIS] SMTP email sent to {recipient_email} via {SMTP_SERVER}:{port}")
+        if response.ok:
+            print(f"[AEGIS] Brevo email accepted for {recipient_email}")
             return True
-        except Exception as exc:
-            last_error = exc
-            print(f"[AEGIS] SMTP attempt failed on {SMTP_SERVER}:{port}: {exc}")
 
-    print(f"[AEGIS] SMTP delivery failed for {recipient_email}: {last_error}")
-    return False
+        print(f"[AEGIS] Brevo API error {response.status_code}: {response.text}")
+        return False
+    except Exception as exc:
+        print(f"[AEGIS] Brevo request error: {exc}")
+        return False
 
 
 def send_verification_email(recipient_email, recipient_name, otp_code):
@@ -162,7 +152,7 @@ def send_verification_email(recipient_email, recipient_name, otp_code):
         </html>
         """
 
-    return _send_email_via_smtp(recipient_email, subject, text_body, html_body)
+    return _send_email_via_brevo(recipient_email, subject, text_body, html_body)
 
 
 
@@ -188,7 +178,7 @@ def send_password_reset_email(recipient_email, recipient_name, reset_code):
         </html>
         """
 
-    return _send_email_via_smtp(recipient_email, subject, text_body, html_body)
+    return _send_email_via_brevo(recipient_email, subject, text_body, html_body)
 
 
 @auth_bp.route("/auth/register", methods=["POST", "OPTIONS"])
