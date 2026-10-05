@@ -29,8 +29,8 @@ export default function ThreatDetection() {
               Live Detections
             </h1>
             <p className="text-xs sm:text-sm text-slate-200 mt-1.5 max-w-2xl font-sans font-medium leading-relaxed">
-              Every row below is a real network flow captured, feature-extracted, and classified by the Random Forest
-              engine running on the server — mirrored live in your Security Operations Center (SOC) console.
+              Every row below represents a network flow captured and feature-extracted by your authenticated Windows/Npcap sensor,
+              classified by the Random Forest engine, then synchronized to your hosted Security Operations Center (SOC) console.
             </p>
           </div>
 
@@ -52,10 +52,9 @@ export default function ThreatDetection() {
         <div className="glass-panel p-5 rounded-2xl border border-amber-500/50 bg-amber-950/40 flex items-start gap-3">
           <ServerCrash className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <h3 className="text-sm font-bold text-amber-300">Backend Local Engine Standby</h3>
+            <h3 className="text-sm font-bold text-amber-300">Hosted API Unavailable</h3>
             <p className="text-xs text-amber-100 font-sans mt-1">
-              Could not connect to the local Flask API service. Make sure the backend service is running or click
-              "Refresh Now".
+              Could not connect to the hosted AEGIS Flask API. Check your internet connection and click "Refresh Now".
             </p>
           </div>
         </div>
@@ -67,7 +66,7 @@ export default function ThreatDetection() {
           <div>
             <h3 className="text-sm font-bold text-slate-100">Connected, but no flows captured yet</h3>
             <p className="text-xs text-slate-200 font-sans mt-1">
-              The API is reachable and ready. Click "Start Monitoring" above to start capturing and inspecting web network traffic live.
+              The hosted API is reachable. Connect your account's Windows sensor and click "Start Monitoring" to capture and inspect live web network traffic.
             </p>
           </div>
         </div>
@@ -109,7 +108,7 @@ export default function ThreatDetection() {
       {!isOnline && history.length === 0 && (
         <div className="text-center py-6 text-slate-600">
           <WifiOff className="w-8 h-8 mx-auto mb-2" />
-          <p className="text-xs font-mono">Waiting for connection to the capture engine...</p>
+          <p className="text-xs font-mono">Waiting for connection to the hosted AEGIS service...</p>
         </div>
       )}
     </div>
