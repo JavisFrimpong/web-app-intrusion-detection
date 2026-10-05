@@ -21,13 +21,10 @@ def monitor_status():
     user, error = require_authenticated_user()
     if error:
         return error
-    state = get_sensor_state()
+
+    state = get_sensor_state(user["id"])
     return jsonify({
-        "running": bool(
-            state.get("online")
-            and state.get("running")
-            and int(state.get("active_user_id") or -1) == int(user["id"])
-        ),
+        "running": bool(state.get("online") and state.get("running")),
         "sensor_online": bool(state.get("online")),
         "sensor_id": state.get("sensor_id"),
         "sensor_hostname": state.get("hostname"),
@@ -35,8 +32,8 @@ def monitor_status():
         "interfaces": state.get("interfaces") or [],
         "started_at": state.get("started_at"),
         "uptime_seconds": state.get("uptime_seconds"),
-        "target": state.get("target") if int(state.get("active_user_id") or -1) == int(user["id"]) else None,
-        "target_ip": state.get("target_ip") if int(state.get("active_user_id") or -1) == int(user["id"]) else None,
+        "target": state.get("target"),
+        "target_ip": state.get("target_ip"),
         "last_seen": state.get("last_seen_iso"),
     })
 
@@ -46,18 +43,13 @@ def monitor_start():
     user, error = require_authenticated_user()
     if error:
         return error
-    state = get_sensor_state()
+
+    state = get_sensor_state(user["id"])
     if not state.get("online"):
         return jsonify({
             "success": False,
-            "error": "AEGIS Sensor is offline. Start sensor_agent.py on the Windows/Npcap monitoring machine first."
+            "error": "Your AEGIS Sensor is offline. Start the Windows/Npcap sensor for this account first."
         }), 503
-
-    if state.get("running") and int(state.get("active_user_id") or -1) != int(user["id"]):
-        return jsonify({
-            "success": False,
-            "error": "The monitoring sensor is currently assigned to another account."
-        }), 409
 
     data = request.get_json(silent=True) or {}
     raw_target = (data.get("target") or "").strip()
@@ -72,10 +64,10 @@ def monitor_start():
             "error": f"Couldn't resolve '{raw_target}'. Check the address and try again."
         }), 400
 
-    command_id = queue_sensor_command("start", raw_target, user["id"])
+    command_id = queue_sensor_command(user["id"], "start", raw_target)
     return jsonify({
         "success": True,
-        "message": "Start command sent to AEGIS Sensor.",
+        "message": "Start command sent to your AEGIS Sensor.",
         "command_id": command_id,
         "target": clean_target,
         "target_ip": target_ip,
@@ -87,21 +79,17 @@ def monitor_stop():
     user, error = require_authenticated_user()
     if error:
         return error
-    state = get_sensor_state()
+
+    state = get_sensor_state(user["id"])
     if not state.get("online"):
         return jsonify({
             "success": False,
-            "error": "AEGIS Sensor is offline, so a stop command cannot be delivered."
+            "error": "Your AEGIS Sensor is offline, so a stop command cannot be delivered."
         }), 503
-    if state.get("running") and int(state.get("active_user_id") or -1) != int(user["id"]):
-        return jsonify({
-            "success": False,
-            "error": "You cannot stop a monitoring session owned by another account."
-        }), 403
 
-    command_id = queue_sensor_command("stop", user_id=user["id"])
+    command_id = queue_sensor_command(user["id"], "stop")
     return jsonify({
         "success": True,
-        "message": "Stop command sent to AEGIS Sensor.",
+        "message": "Stop command sent to your AEGIS Sensor.",
         "command_id": command_id,
     })
