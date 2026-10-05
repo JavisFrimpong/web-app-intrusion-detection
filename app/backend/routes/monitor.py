@@ -2,6 +2,7 @@ import socket
 from flask import Blueprint, jsonify, request
 
 from routes.sensor import get_sensor_state, queue_sensor_command
+from routes.auth import require_authenticated_user
 
 monitor_bp = Blueprint("monitor", __name__)
 
@@ -17,6 +18,9 @@ def _resolve_target(raw_target):
 
 @monitor_bp.route("/monitor/status", methods=["GET"])
 def monitor_status():
+    user, error = require_authenticated_user()
+    if error:
+        return error
     state = get_sensor_state()
     return jsonify({
         "running": bool(state.get("online") and state.get("running")),
@@ -35,6 +39,9 @@ def monitor_status():
 
 @monitor_bp.route("/monitor/start", methods=["POST"])
 def monitor_start():
+    user, error = require_authenticated_user()
+    if error:
+        return error
     state = get_sensor_state()
     if not state.get("online"):
         return jsonify({
@@ -55,7 +62,7 @@ def monitor_start():
             "error": f"Couldn't resolve '{raw_target}'. Check the address and try again."
         }), 400
 
-    command_id = queue_sensor_command("start", raw_target)
+    command_id = queue_sensor_command("start", raw_target, user["id"])
     return jsonify({
         "success": True,
         "message": "Start command sent to AEGIS Sensor.",
@@ -67,6 +74,9 @@ def monitor_start():
 
 @monitor_bp.route("/monitor/stop", methods=["POST"])
 def monitor_stop():
+    user, error = require_authenticated_user()
+    if error:
+        return error
     state = get_sensor_state()
     if not state.get("online"):
         return jsonify({
@@ -74,7 +84,7 @@ def monitor_stop():
             "error": "AEGIS Sensor is offline, so a stop command cannot be delivered."
         }), 503
 
-    command_id = queue_sensor_command("stop")
+    command_id = queue_sensor_command("stop", user_id=user["id"])
     return jsonify({
         "success": True,
         "message": "Stop command sent to AEGIS Sensor.",
