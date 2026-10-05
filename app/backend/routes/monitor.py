@@ -23,7 +23,11 @@ def monitor_status():
         return error
     state = get_sensor_state()
     return jsonify({
-        "running": bool(state.get("online") and state.get("running")),
+        "running": bool(
+            state.get("online")
+            and state.get("running")
+            and int(state.get("active_user_id") or -1) == int(user["id"])
+        ),
         "sensor_online": bool(state.get("online")),
         "sensor_id": state.get("sensor_id"),
         "sensor_hostname": state.get("hostname"),
@@ -31,8 +35,8 @@ def monitor_status():
         "interfaces": state.get("interfaces") or [],
         "started_at": state.get("started_at"),
         "uptime_seconds": state.get("uptime_seconds"),
-        "target": state.get("target"),
-        "target_ip": state.get("target_ip"),
+        "target": state.get("target") if int(state.get("active_user_id") or -1) == int(user["id"]) else None,
+        "target_ip": state.get("target_ip") if int(state.get("active_user_id") or -1) == int(user["id"]) else None,
         "last_seen": state.get("last_seen_iso"),
     })
 
@@ -48,6 +52,12 @@ def monitor_start():
             "success": False,
             "error": "AEGIS Sensor is offline. Start sensor_agent.py on the Windows/Npcap monitoring machine first."
         }), 503
+
+    if state.get("running") and int(state.get("active_user_id") or -1) != int(user["id"]):
+        return jsonify({
+            "success": False,
+            "error": "The monitoring sensor is currently assigned to another account."
+        }), 409
 
     data = request.get_json(silent=True) or {}
     raw_target = (data.get("target") or "").strip()
@@ -83,6 +93,11 @@ def monitor_stop():
             "success": False,
             "error": "AEGIS Sensor is offline, so a stop command cannot be delivered."
         }), 503
+    if state.get("running") and int(state.get("active_user_id") or -1) != int(user["id"]):
+        return jsonify({
+            "success": False,
+            "error": "You cannot stop a monitoring session owned by another account."
+        }), 403
 
     command_id = queue_sensor_command("stop", user_id=user["id"])
     return jsonify({
