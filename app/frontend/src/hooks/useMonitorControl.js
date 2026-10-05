@@ -14,12 +14,14 @@ export const useMonitorControl = (pollInterval = 5000) => {
   const [actionPending, setActionPending] = useState(false);
   const [error, setError] = useState(null);
   const [backendReachable, setBackendReachable] = useState(false);
+  const [sensorOnline, setSensorOnline] = useState(false);
   const mounted = useRef(true);
 
   const refreshStatus = useCallback(async () => {
     const res = await fetchMonitorStatus();
     if (!mounted.current) return;
     setBackendReachable(res.isOnline);
+    setSensorOnline(!!res.data?.sensor_online);
     setRunning(!!res.data?.running);
     setUptimeSeconds(res.data?.uptime_seconds ?? null);
     setTarget(res.data?.target ?? null);
@@ -62,5 +64,5 @@ export const useMonitorControl = (pollInterval = 5000) => {
     return res;
   };
 
-  return { running, uptimeSeconds, target, checking, actionPending, error, backendReachable, start, stop, refreshStatus };
+  return { running, uptimeSeconds, target, checking, actionPending, error, backendReachable, sensorOnline, start, stop, refreshStatus };
 };
