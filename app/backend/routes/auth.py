@@ -3,7 +3,6 @@ import random
 import hashlib
 import secrets
 import smtplib
-import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
@@ -24,8 +23,6 @@ SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-EMAIL_FROM = os.environ.get("EMAIL_FROM", "AEGIS SOC <onboarding@resend.dev>")
 
 SESSION_DAYS = 14
 
@@ -99,34 +96,48 @@ def require_authenticated_user():
     return user, None
 
 
-def send_email_via_resend(recipient_email, subject, text_body, html_body):
-    if not RESEND_API_KEY:
+def _send_email_via_smtp(recipient_email, subject, text_body, html_body):
+    if not SMTP_USER or not SMTP_PASS:
+        print(f"[AEGIS] SMTP credentials are not configured for {recipient_email}")
         return False
 
-    try:
-        response = requests.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {RESEND_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "from": EMAIL_FROM,
-                "to": [recipient_email],
-                "subject": subject,
-                "text": text_body,
-                "html": html_body,
-            },
-            timeout=15,
-        )
-        if response.ok:
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"AEGIS Enterprise Security <{SMTP_USER}>"
+    msg["To"] = recipient_email
+    msg.attach(MIMEText(text_body, "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
+    # Try the configured SMTP port first. For Gmail, automatically fall back
+    # between STARTTLS (587) and implicit TLS (465).
+    ports = [SMTP_PORT]
+    if SMTP_SERVER == "smtp.gmail.com":
+        for port in (465, 587):
+            if port not in ports:
+                ports.append(port)
+
+    last_error = None
+    for port in ports:
+        try:
+            if int(port) == 465:
+                server = smtplib.SMTP_SSL(SMTP_SERVER, int(port), timeout=10)
+            else:
+                server = smtplib.SMTP(SMTP_SERVER, int(port), timeout=10)
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, [recipient_email], msg.as_string())
+            server.quit()
+            print(f"[AEGIS] SMTP email sent to {recipient_email} via {SMTP_SERVER}:{port}")
             return True
+        except Exception as exc:
+            last_error = exc
+            print(f"[AEGIS] SMTP attempt failed on {SMTP_SERVER}:{port}: {exc}")
 
-        print(f"[AEGIS] Resend API error {response.status_code}: {response.text}")
-        return False
-    except Exception as exc:
-        print(f"[AEGIS] Resend request error: {exc}")
-        return False
+    print(f"[AEGIS] SMTP delivery failed for {recipient_email}: {last_error}")
+    return False
 
 
 def send_verification_email(recipient_email, recipient_name, otp_code):
@@ -151,30 +162,7 @@ def send_verification_email(recipient_email, recipient_name, otp_code):
         </html>
         """
 
-    if send_email_via_resend(recipient_email, subject, text_body, html_body):
-        return True
-
-    if not SMTP_USER or not SMTP_PASS:
-        print(f"[AEGIS] No email provider configured for verification email to {recipient_email}")
-        return False
-
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"AEGIS Enterprise Security <{SMTP_USER}>"
-        msg["To"] = recipient_email
-        msg.attach(MIMEText(text_body, "plain"))
-        msg.attach(MIMEText(html_body, "html"))
-
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=8)
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(SMTP_USER, [recipient_email], msg.as_string())
-        server.quit()
-        return True
-    except Exception as exc:
-        print(f"[AEGIS] SMTP error: {exc}")
-        return False
+    return _send_email_via_smtp(recipient_email, subject, text_body, html_body)
 
 
 
@@ -200,30 +188,7 @@ def send_password_reset_email(recipient_email, recipient_name, reset_code):
         </html>
         """
 
-    if send_email_via_resend(recipient_email, subject, text_body, html_body):
-        return True
-
-    if not SMTP_USER or not SMTP_PASS:
-        print(f"[AEGIS] No email provider configured for password reset email to {recipient_email}")
-        return False
-
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = f"AEGIS Enterprise Security <{SMTP_USER}>"
-        msg["To"] = recipient_email
-        msg.attach(MIMEText(text_body, "plain"))
-        msg.attach(MIMEText(html_body, "html"))
-
-        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=8)
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(SMTP_USER, [recipient_email], msg.as_string())
-        server.quit()
-        return True
-    except Exception as exc:
-        print(f"[AEGIS] Password reset SMTP error: {exc}")
-        return False
+    return _send_email_via_smtp(recipient_email, subject, text_body, html_body)
 
 
 @auth_bp.route("/auth/register", methods=["POST", "OPTIONS"])
