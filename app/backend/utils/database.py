@@ -154,6 +154,8 @@ def initialize_database(db=None):
                     status TEXT NOT NULL DEFAULT 'pending',
                     http_status INTEGER,
                     last_checked_at TEXT,
+                    site_key TEXT UNIQUE,
+                    last_event_at TEXT,
                     created_at TEXT NOT NULL,
                     UNIQUE(user_id, domain)
                 )
@@ -165,6 +167,9 @@ def initialize_database(db=None):
             db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_sensor_token ON users(sensor_token)")
             db.execute("ALTER TABLE predictions ADD COLUMN IF NOT EXISTS user_id INTEGER")
             db.execute("ALTER TABLE heuristic_alerts ADD COLUMN IF NOT EXISTS user_id INTEGER")
+            db.execute("ALTER TABLE monitored_websites ADD COLUMN IF NOT EXISTS site_key TEXT")
+            db.execute("ALTER TABLE monitored_websites ADD COLUMN IF NOT EXISTS last_event_at TEXT")
+            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_websites_site_key ON monitored_websites(site_key)")
         else:
             db.execute("""
                 CREATE TABLE IF NOT EXISTS users (
@@ -225,6 +230,8 @@ def initialize_database(db=None):
                     status TEXT NOT NULL DEFAULT 'pending',
                     http_status INTEGER,
                     last_checked_at TEXT,
+                    site_key TEXT UNIQUE,
+                    last_event_at TEXT,
                     created_at TEXT NOT NULL,
                     UNIQUE(user_id, domain),
                     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -244,6 +251,11 @@ def initialize_database(db=None):
                 db.execute("ALTER TABLE predictions ADD COLUMN user_id INTEGER")
             if "user_id" not in _sqlite_column_names(db, "heuristic_alerts"):
                 db.execute("ALTER TABLE heuristic_alerts ADD COLUMN user_id INTEGER")
+            if "site_key" not in _sqlite_column_names(db, "monitored_websites"):
+                db.execute("ALTER TABLE monitored_websites ADD COLUMN site_key TEXT")
+            if "last_event_at" not in _sqlite_column_names(db, "monitored_websites"):
+                db.execute("ALTER TABLE monitored_websites ADD COLUMN last_event_at TEXT")
+            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_websites_site_key ON monitored_websites(site_key)")
 
         db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_predictions_user_id ON predictions(user_id)")
