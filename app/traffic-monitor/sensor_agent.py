@@ -69,7 +69,7 @@ def stop_capture(proc):
     return None
 
 
-def start_capture(target, user_id):
+def start_capture(target):
     host, target_ip = clean_target(target)
     if not target_ip:
         raise RuntimeError("A valid monitoring target is required.")
@@ -82,7 +82,6 @@ def start_capture(target, user_id):
     env["AEGIS_API_URL"] = API_URL
     if SENSOR_TOKEN:
         env["AEGIS_SENSOR_TOKEN"] = SENSOR_TOKEN
-    env["AEGIS_USER_ID"] = str(user_id)
 
     proc = subprocess.Popen(
         [sys.executable, CAPTURE_SCRIPT, "--target-ip", target_ip],
@@ -93,7 +92,7 @@ def start_capture(target, user_id):
     return proc, host, target_ip
 
 
-def heartbeat(proc, target, target_ip, user_id):
+def heartbeat(proc, target, target_ip):
     running = proc is not None and proc.poll() is None
     payload = {
         "sensor_id": SENSOR_ID,
@@ -103,7 +102,6 @@ def heartbeat(proc, target, target_ip, user_id):
         "running": running,
         "target": target if running else None,
         "target_ip": target_ip if running else None,
-        "user_id": user_id if running else None,
     }
     response = requests.post(
         f"{API_URL}/api/sensor/heartbeat",
@@ -137,7 +135,6 @@ def main():
     proc = None
     target = None
     target_ip = None
-    active_user_id = None
     last_command_id = 0
     last_heartbeat = 0.0
 
@@ -153,7 +150,7 @@ def main():
 
             if now - last_heartbeat >= 4:
                 try:
-                    heartbeat(proc, target, target_ip, active_user_id)
+                    heartbeat(proc, target, target_ip)
                     last_heartbeat = now
                 except Exception as exc:
                     print("Heartbeat failed:", exc)
@@ -168,13 +165,9 @@ def main():
 
                     if command == "start":
                         requested_target = payload.get("target")
-                        requested_user_id = payload.get("user_id")
-                        if requested_user_id is None:
-                            raise RuntimeError("Start command did not include a user account.")
                         proc = stop_capture(proc)
-                        print("Starting monitoring for:", requested_target, "account:", requested_user_id)
-                        proc, target, target_ip = start_capture(requested_target, requested_user_id)
-                        active_user_id = int(requested_user_id)
+                        print("Starting monitoring for:", requested_target)
+                        proc, target, target_ip = start_capture(requested_target)
                         print("Monitoring target IP:", target_ip)
 
                     elif command == "stop":
@@ -182,7 +175,6 @@ def main():
                         proc = stop_capture(proc)
                         target = None
                         target_ip = None
-                        active_user_id = None
                         print("Monitoring stopped.")
 
             except Exception as exc:
@@ -195,7 +187,7 @@ def main():
     finally:
         stop_capture(proc)
         try:
-            heartbeat(None, None, None, None)
+            heartbeat(None, None, None)
         except Exception:
             pass
 
