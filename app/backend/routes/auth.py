@@ -438,6 +438,8 @@ def delete_account():
 
     conn = get_db()
     conn.execute("DELETE FROM sessions WHERE user_id = ?", (user["id"],))
+    conn.execute("DELETE FROM heuristic_alerts WHERE user_id = ?", (user["id"],))
+    conn.execute("DELETE FROM predictions WHERE user_id = ?", (user["id"],))
     conn.execute("DELETE FROM users WHERE id = ?", (user["id"],))
     conn.commit()
     conn.close()
