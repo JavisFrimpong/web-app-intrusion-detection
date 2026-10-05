@@ -1,10 +1,17 @@
 import axios from 'axios';
 
 // Default API Base URL
-const DEFAULT_BASE_URL = 'http://127.0.0.1:5000/api';
+const DEFAULT_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://127.0.0.1:5000/api');
 
 export const getStoredApiUrl = () => {
-  return localStorage.getItem('ids_api_url') || DEFAULT_BASE_URL;
+  const stored = localStorage.getItem('ids_api_url');
+
+  // Ignore old localhost overrides after deployment.
+  if (import.meta.env.PROD && stored && /localhost|127\.0\.0\.1/.test(stored)) {
+    return DEFAULT_BASE_URL;
+  }
+
+  return stored || DEFAULT_BASE_URL;
 };
 
 export const setStoredApiUrl = (url) => {
