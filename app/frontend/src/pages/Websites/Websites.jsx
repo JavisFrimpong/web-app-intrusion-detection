@@ -12,6 +12,8 @@ export default function Websites() {
   const [connectingId, setConnectingId] = useState(null);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const [setup, setSetup] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -21,7 +23,11 @@ export default function Websites() {
     else setError(res.error);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const timer = setInterval(() => load(), 8000);
+    return () => clearInterval(timer);
+  }, []);
 
   const addNewWebsite = async (e) => {
     e.preventDefault();
@@ -47,7 +53,13 @@ export default function Websites() {
       setError(res.details ? `${res.error} ${res.details}` : res.error);
       return;
     }
-    setMessage('Website verified and reachable from AEGIS. The monitoring gateway still needs to be configured before live traffic can appear.');
+    setMessage('Website verified. Add the one-line monitoring script to the website, then open the website once to activate live monitoring.');
+    setSetup({
+      website: res.website,
+      snippet: res.snippet,
+      script_url: res.script_url,
+    });
+    setCopied(false);
     await load();
   };
 
@@ -59,8 +71,9 @@ export default function Websites() {
 
   const counts = useMemo(() => ({
     total: items.length,
-    verified: items.filter(x => x.status === 'verified').length,
-    pending: items.filter(x => x.status !== 'verified').length,
+    verified: items.filter(x => x.status === 'verified' || x.status === 'monitoring').length,
+    monitoring: items.filter(x => x.status === 'monitoring').length,
+    pending: items.filter(x => x.status !== 'verified' && x.status !== 'monitoring').length,
   }), [items]);
 
   return (
@@ -91,8 +104,8 @@ export default function Websites() {
       <section className="grid gap-4 sm:grid-cols-3">
         {[
           ['Websites', counts.total, Globe2, 'text-cyan-300'],
-          ['Verified', counts.verified, CheckCircle2, 'text-emerald-300'],
-          ['Setup pending', counts.pending, Clock3, 'text-amber-300'],
+          ['Monitoring', counts.monitoring, CheckCircle2, 'text-emerald-300'],
+          ['Setup pending', counts.pending + Math.max(0, counts.verified - counts.monitoring), Clock3, 'text-amber-300'],
         ].map(([label,value,Icon,color])=>(
           <div key={label} className="rounded-2xl border border-slate-800 bg-slate-900/65 p-5">
             <div className="flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500">{label}</span><Icon className={`h-4 w-4 ${color}`}/></div>
@@ -125,15 +138,17 @@ export default function Websites() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  {item.status === 'verified' ? (
-                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5"/> Website verified</span>
+                  {item.status === 'monitoring' ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5"/> Monitoring active</span>
+                  ) : item.status === 'verified' ? (
+                    <span className="inline-flex items-center gap-2 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold text-cyan-300"><CheckCircle2 className="h-3.5 w-3.5"/> Verified · setup script</span>
                   ) : (
                     <span className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-300"><Clock3 className="h-3.5 w-3.5"/> Verification pending</span>
                   )}
 
                   <button onClick={()=>connect(item.id)} disabled={connectingId===item.id} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/50 px-3 py-2 text-xs font-bold text-slate-300 hover:border-cyan-400/30 hover:text-cyan-300 disabled:opacity-50">
                     {connectingId===item.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin"/> : <Link2 className="h-3.5 w-3.5"/>}
-                    {item.status === 'verified' ? 'Recheck website' : 'Verify website'}
+                    {item.status === 'monitoring' ? 'Recheck website' : item.status === 'verified' ? 'Show setup' : 'Verify website'}
                   </button>
 
                   <button onClick={()=>remove(item.id)} className="rounded-xl border border-slate-800 bg-slate-950/40 p-2 text-slate-600 hover:border-rose-500/30 hover:text-rose-400" title="Remove website"><Trash2 className="h-3.5 w-3.5"/></button>
@@ -155,6 +170,59 @@ export default function Websites() {
           </div>
         </div>
       </section>
+
+      {setup && (
+        <div className="fixed inset-0 z-[85] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[28px] border border-cyan-500/20 bg-slate-900 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-[.2em] text-cyan-300">Final connection step</span>
+                <h2 className="mt-2 text-2xl font-black text-white">Activate monitoring for {setup.website?.domain}</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Add this single script tag to the website's HTML. For React/Vite, place it in <span className="font-mono text-slate-300">index.html</span> before <span className="font-mono text-slate-300">&lt;/head&gt;</span>. Deploy the site, then open it once.
+                </p>
+              </div>
+              <button onClick={()=>setSetup(null)} className="rounded-lg p-2 text-slate-500 hover:bg-slate-800 hover:text-white"><X className="h-4 w-4"/></button>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950/80 p-4">
+              <code className="block break-all text-xs leading-6 text-cyan-200">{setup.snippet}</code>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                onClick={async ()=>{
+                  await navigator.clipboard.writeText(setup.snippet || '');
+                  setCopied(true);
+                }}
+                className="rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 px-4 py-2.5 text-xs font-black text-slate-950"
+              >
+                {copied ? 'Copied' : 'Copy monitoring script'}
+              </button>
+              <button
+                onClick={async ()=>{
+                  await load();
+                  const fresh = (await fetchWebsites());
+                  const current = fresh.websites?.find(x => x.id === setup.website?.id);
+                  if (current?.status === 'monitoring') {
+                    setMessage('Monitoring is active. Open Live Activity to see incoming events.');
+                    setSetup(null);
+                  } else {
+                    setMessage('AEGIS has not received telemetry yet. Deploy the script and visit the monitored website once, then check again.');
+                  }
+                }}
+                className="rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-2.5 text-xs font-bold text-slate-200 hover:border-cyan-500/30 hover:text-cyan-300"
+              >
+                Check activation
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-xs leading-5 text-slate-500">
+              The browser monitor records page views, request status/duration, failed requests, route changes, form-submit metadata, and client-side errors. It does not collect form values, passwords, or page content.
+            </div>
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
