@@ -9,6 +9,7 @@ from routes.auth import auth_bp
 from routes.sensor import sensor_bp
 from routes.websites import websites_bp
 from routes.ingestion import ingestion_bp
+from routes.demo import demo_bp
 from utils.database import initialize_database
 from utils.ml_engine import model_status
 
@@ -50,6 +51,7 @@ app.register_blueprint(monitor_bp, url_prefix="/api")
 app.register_blueprint(sensor_bp, url_prefix="/api")
 app.register_blueprint(websites_bp, url_prefix="/api")
 app.register_blueprint(ingestion_bp, url_prefix="/api")
+app.register_blueprint(demo_bp, url_prefix="/api")
 
 
 @app.route("/")
