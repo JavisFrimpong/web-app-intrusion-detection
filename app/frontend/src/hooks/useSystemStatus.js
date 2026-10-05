@@ -8,6 +8,8 @@ export const useSystemStatus = (pollInterval = 30000) => {
     model: 'Random Forest',
     system: 'Intrusion Detection System',
     status: 'checking',
+    mlReady: false,
+    featureCount: 0,
     lastChecked: null,
     error: null,
   });
@@ -23,6 +25,8 @@ export const useSystemStatus = (pollInterval = 30000) => {
         model: result.data.model || 'Random Forest',
         system: result.data.system || 'Intrusion Detection System',
         status: result.data.status || 'active',
+        mlReady: Boolean(result.data.ml_ready),
+        featureCount: result.data.feature_count || 0,
         lastChecked: new Date(),
         error: null,
       });
@@ -33,6 +37,8 @@ export const useSystemStatus = (pollInterval = 30000) => {
         model: 'Random Forest (CICIDS2017)',
         system: 'Intrusion Detection System',
         status: 'offline',
+        mlReady: false,
+        featureCount: 0,
         lastChecked: new Date(),
         error: result.error || 'Flask API endpoint unreachable',
       });
