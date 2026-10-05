@@ -39,7 +39,7 @@ function MetricCard({ icon: Icon, label, value, subtext, tone = 'cyan' }) {
 }
 
 export default function Dashboard() {
-  const { isOnline: isSystemOnline, status } = useSystemStatus();
+  const { isOnline: isSystemOnline, status, mlReady } = useSystemStatus();
   const {
     history,
     stats,
@@ -131,7 +131,7 @@ export default function Dashboard() {
           <div className="mt-5 space-y-4">
             {[
               ['Monitoring API', isOnline ? 'Online' : 'Offline', isOnline ? 'text-emerald-300' : 'text-amber-300'],
-              ['Detection service', status === 'active' || isOnline ? 'Available' : 'Standby', 'text-cyan-300'],
+              ['ML detection engine', mlReady ? 'Ready' : 'Model required', mlReady ? 'text-emerald-300' : 'text-amber-300'],
               ['Last refresh', 'Live', 'text-slate-300'],
             ].map(([label,value,color])=>(
               <div key={label} className="flex items-center justify-between border-b border-slate-800 pb-3 last:border-b-0">
@@ -141,7 +141,7 @@ export default function Dashboard() {
             ))}
           </div>
           <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-            <div className="flex gap-3"><TimerReset className="mt-0.5 h-4 w-4 shrink-0 text-slate-500"/><p className="text-xs leading-5 text-slate-500">AEGIS observes and reports suspicious activity. It does not block, modify, or stop requests.</p></div>
+            <div className="flex gap-3"><TimerReset className="mt-0.5 h-4 w-4 shrink-0 text-slate-500"/><p className="text-xs leading-5 text-slate-500">{mlReady ? 'Random Forest inference is available for incoming 78-feature network flows. AEGIS detects and reports; it does not block traffic.' : 'The monitoring API is online, but the trained Random Forest artifacts are not yet installed on the hosted service.'}</p></div>
           </div>
         </div>
       </section>
