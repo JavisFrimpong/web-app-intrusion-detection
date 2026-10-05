@@ -44,7 +44,7 @@ def get_history():
                 status_label = "Clean"
             else:
                 display_attack = raw_attack or "Anomaly"
-                status_label = "Blocked"
+                status_label = "Detected"
 
             formatted_history.append({
                 "id": f"DET-{row['id']}",
