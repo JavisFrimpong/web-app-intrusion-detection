@@ -1,5 +1,6 @@
 import re
 import secrets
+import time
 from datetime import datetime
 import requests
 from flask import Blueprint, jsonify, request, Response
@@ -53,6 +54,108 @@ def _classify_event(path, event_type):
     return 0, "BENIGN", 0.99
 
 
+def _record_external_check(db, site):
+    domain = site["domain"]
+    candidates = [f"https://{domain}", f"http://{domain}"]
+    if domain.startswith("localhost"):
+        candidates = [f"http://{domain}"]
+
+    response = None
+    last_error = None
+    started = time.perf_counter()
+    for url in candidates:
+        try:
+            response = requests.get(
+                url,
+                timeout=10,
+                allow_redirects=True,
+                headers={"User-Agent": "AEGIS-External-Monitor/1.0"},
+            )
+            break
+        except Exception as exc:
+            last_error = str(exc)
+
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    now = datetime.utcnow().isoformat()
+
+    if response is None:
+        prediction = 1
+        attack_type = "Website Unreachable"
+        confidence = 0.99
+        http_status = None
+        status = "unreachable"
+        message = f"AEGIS could not reach {domain}: {last_error or 'connection failed'}"
+    else:
+        http_status = int(response.status_code)
+        status = "monitoring"
+        if http_status >= 500:
+            prediction = 1
+            attack_type = "Server Error"
+            confidence = 0.94
+            message = f"{domain} returned HTTP {http_status}"
+        elif elapsed_ms >= 5000:
+            prediction = 1
+            attack_type = "High Response Latency"
+            confidence = 0.82
+            message = f"{domain} responded in {elapsed_ms} ms"
+        else:
+            prediction = 0
+            attack_type = "BENIGN"
+            confidence = 0.99
+            message = f"{domain} reachable with HTTP {http_status} in {elapsed_ms} ms"
+
+    db.execute(
+        """
+        INSERT INTO predictions (
+            user_id, prediction, attack_type, confidence, timestamp,
+            source_ip, source_port, destination_ip, destination_port, packet_count
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            site["user_id"], prediction, attack_type, confidence, now,
+            "AEGIS External Monitor", 0, domain, 443, max(1, elapsed_ms),
+        ),
+    )
+
+    if prediction != 0:
+        db.execute(
+            """
+            INSERT INTO heuristic_alerts (user_id, alert_type, message, timestamp, source_ip)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (site["user_id"], attack_type, message, now, "AEGIS External Monitor"),
+        )
+
+    db.execute(
+        """
+        UPDATE monitored_websites
+        SET status = ?, http_status = ?, last_checked_at = ?, last_event_at = ?
+        WHERE id = ?
+        """,
+        (status, http_status, now, now, site["id"]),
+    )
+    db.commit()
+    return {
+        "status": status,
+        "http_status": http_status,
+        "elapsed_ms": elapsed_ms,
+        "message": message,
+        "prediction": prediction,
+        "attack_type": attack_type,
+    }
+
+
+def _external_check_due(site, seconds=20):
+    last = site["last_event_at"] or site["last_checked_at"]
+    if not last:
+        return True
+    try:
+        return (datetime.utcnow() - datetime.fromisoformat(last)).total_seconds() >= seconds
+    except Exception:
+        return True
+
+
 @websites_bp.route("/websites", methods=["GET", "POST", "OPTIONS"])
 def websites():
     if request.method == "OPTIONS":
@@ -65,6 +168,18 @@ def websites():
     db = get_db()
     try:
         if request.method == "GET":
+            rows = db.execute(
+                "SELECT * FROM monitored_websites WHERE user_id = ? ORDER BY id DESC",
+                (user["id"],),
+            ).fetchall()
+
+            for site in rows:
+                if site["status"] in ("verified", "monitoring", "unreachable") and _external_check_due(site):
+                    try:
+                        _record_external_check(db, site)
+                    except Exception as exc:
+                        print(f"[AEGIS] External website check failed for {site['domain']}: {exc}")
+
             rows = db.execute(
                 "SELECT * FROM monitored_websites WHERE user_id = ? ORDER BY id DESC",
                 (user["id"],),
@@ -123,62 +238,26 @@ def connect_website(website_id):
         if not row:
             return jsonify({"success": False, "error": "Website not found."}), 404
 
-        domain = row["domain"]
-        checked_at = datetime.utcnow().isoformat()
-        last_error = None
-        response = None
-
-        candidates = [f"https://{domain}", f"http://{domain}"]
-        if domain.startswith("localhost"):
-            candidates = [f"http://{domain}"]
-
-        for url in candidates:
-            try:
-                response = requests.get(
-                    url,
-                    timeout=10,
-                    allow_redirects=True,
-                    headers={"User-Agent": "AEGIS-Monitor/1.0"},
-                )
-                break
-            except Exception as exc:
-                last_error = str(exc)
-
-        if response is None:
-            db.execute(
-                "UPDATE monitored_websites SET status = 'unreachable', http_status = NULL, last_checked_at = ? WHERE id = ?",
-                (checked_at, website_id),
-            )
-            db.commit()
-            return jsonify({
-                "success": False,
-                "error": "AEGIS could not reach this website from the hosted monitoring service.",
-                "details": last_error,
-            }), 422
-
-        site_key = row["site_key"] or secrets.token_urlsafe(24)
-        db.execute(
-            "UPDATE monitored_websites SET status = 'verified', http_status = ?, last_checked_at = ?, site_key = ? WHERE id = ?",
-            (int(response.status_code), checked_at, site_key, website_id),
-        )
-        db.commit()
-
+        result = _record_external_check(db, row)
         updated = db.execute(
             "SELECT * FROM monitored_websites WHERE id = ? AND user_id = ?",
             (website_id, user["id"]),
         ).fetchone()
 
-        script_url = f"https://aegis-ids-api.onrender.com/api/sdk/aegis.js?site={site_key}"
-        snippet = f'<script async src="{script_url}"></script>'
+        if result["status"] == "unreachable":
+            return jsonify({
+                "success": False,
+                "error": "AEGIS could not reach this website from the hosted monitoring service.",
+                "website": _serialize(updated),
+            }), 422
 
         return jsonify({
             "success": True,
             "website": _serialize(updated),
             "reachable": True,
-            "message": "Website verified and reachable from AEGIS.",
-            "script_url": script_url,
-            "snippet": snippet,
-            "next_step": "Add the monitoring snippet to the website before </head> or before </body>.",
+            "message": "External monitoring is active. No client-side code installation is required.",
+            "monitoring_mode": "external",
+            "check": result,
         })
     finally:
         db.close()
