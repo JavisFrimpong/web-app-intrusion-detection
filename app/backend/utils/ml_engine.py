@@ -5,7 +5,7 @@ import pandas as pd
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 MODEL_PATH = os.environ.get("AEGIS_MODEL_PATH") or os.path.join(BASE_DIR, "models", "random_forest.pkl")
 SCALER_PATH = os.environ.get("AEGIS_SCALER_PATH") or os.path.join(BASE_DIR, "models", "standard_scaler.pkl")
-LABEL_MAPPING_PATH = os.environ.get("AEGIS_LABEL_MAPPING_PATH") or os.path.join(BASE_DIR, "data", "processed", "label_mapping.csv")
+LABEL_MAPPING_PATH = os.environ.get("AEGIS_LABEL_MAPPING_PATH") or os.path.join(os.path.dirname(__file__), "..", "model_assets", "label_mapping.csv")
 
 _model = None
 _scaler = None
