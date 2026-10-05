@@ -54,7 +54,6 @@ TOTAL_DURATION = float("inf")
 # inference and stores the final detections for the Vercel dashboard.
 REMOTE_API_URL = (os.environ.get("AEGIS_API_URL") or "").rstrip("/")
 SENSOR_TOKEN = os.environ.get("AEGIS_SENSOR_TOKEN") or ""
-AEGIS_USER_ID = os.environ.get("AEGIS_USER_ID") or ""
 
 def _sensor_headers():
     headers = {"Content-Type": "application/json"}
@@ -86,12 +85,9 @@ def remote_store_result(result, final_verdict, heuristic_alerts, timestamp,
                         packet_count):
     if not REMOTE_API_URL:
         return False
-    if not AEGIS_USER_ID:
-        raise RuntimeError("AEGIS_USER_ID is required for remote result storage.")
     response = requests.post(
         f"{REMOTE_API_URL}/api/sensor/result",
         json={
-            "user_id": int(AEGIS_USER_ID),
             "prediction": result["prediction"],
             "attack_type": final_verdict,
             "confidence": result["confidence"],
