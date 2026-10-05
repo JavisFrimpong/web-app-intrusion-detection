@@ -469,12 +469,10 @@ def close_flow(flow_key, flow_state, reason):
         return False
 
     try:
-        if REMOTE_API_URL:
-            result = remote_classify(features)
-            print("Prediction source: hosted Flask API")
-        else:
-            result = predict_flow(features)
-            print("Prediction source: local fallback model")
+        # Packet capture and ML inference run on the Windows AEGIS sensor.
+        # The hosted Flask service stores and serves the resulting telemetry.
+        result = predict_flow(features)
+        print("Prediction source: local AEGIS Random Forest sensor")
     except Exception as error:
         print("Prediction failed:", f"{type(error).__name__}: {error}")
         return False
