@@ -2,7 +2,6 @@ import os
 from flask import Flask, jsonify
 from flask_cors import CORS
 from routes.monitor import monitor_bp
-from utils.model_loader import load_model, get_model_status
 from routes.prediction import prediction_bp
 from routes.status import status_bp
 from routes.history import history_bp
@@ -49,13 +48,12 @@ app.register_blueprint(sensor_bp, url_prefix="/api")
 
 @app.route("/")
 def home():
-    model_status = get_model_status()
     return jsonify({
-        "message": "IDS Backend API is running",
+        "message": "AEGIS IDS Backend API is running",
         "model": "Random Forest",
-        "ml_ready": model_status["ready"],
-        "status": "active" if model_status["ready"] else "degraded",
-        "model_error": model_status["error"],
+        "status": "active",
+        "inference_mode": "windows-sensor",
+        "database": "PostgreSQL" if os.environ.get("DATABASE_URL") else "SQLite",
     })
 
 
