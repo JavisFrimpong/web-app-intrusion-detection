@@ -7,6 +7,7 @@ from routes.status import status_bp
 from routes.history import history_bp
 from routes.auth import auth_bp
 from routes.sensor import sensor_bp
+from routes.websites import websites_bp
 from utils.database import initialize_database
 
 
@@ -44,6 +45,7 @@ app.register_blueprint(history_bp, url_prefix="/api")
 app.register_blueprint(auth_bp, url_prefix="/api")
 app.register_blueprint(monitor_bp, url_prefix="/api")
 app.register_blueprint(sensor_bp, url_prefix="/api")
+app.register_blueprint(websites_bp, url_prefix="/api")
 
 
 @app.route("/")
