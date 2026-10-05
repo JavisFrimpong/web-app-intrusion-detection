@@ -58,6 +58,12 @@ def monitor_status():
 
 @monitor_bp.route("/monitor/start", methods=["POST"])
 def monitor_start():
+    if os.environ.get("VERCEL"):
+        return jsonify({
+            "success": False,
+            "error": "Live packet capture is only available in the local Windows/Npcap runtime."
+        }), 501
+
     data = request.get_json(silent=True) or {}
     raw_target = (data.get("target") or "").strip()
 
@@ -109,6 +115,12 @@ def monitor_start():
 
 @monitor_bp.route("/monitor/stop", methods=["POST"])
 def monitor_stop():
+    if os.environ.get("VERCEL"):
+        return jsonify({
+            "success": False,
+            "error": "Live packet capture is only available in the local Windows/Npcap runtime."
+        }), 501
+
     with _lock:
         proc = _state["process"]
         if not _is_running():
