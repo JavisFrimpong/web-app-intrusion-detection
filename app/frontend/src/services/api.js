@@ -366,3 +366,14 @@ export const deleteWebsite = async (websiteId) => {
     return { success: false, error: error.response?.data?.error || error.message };
   }
 };
+
+
+export const runCicidsDemoSample = async () => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/demo/cicids-sample');
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
