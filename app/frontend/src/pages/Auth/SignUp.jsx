@@ -26,10 +26,11 @@ export default function SignUp() {
     const res = await signup(email.trim().toLowerCase(), password, username, company);
     setPending(false);
     if (res.success) {
-      const sessionUser = res.user || res.data?.user;
-      setSessionUser(sessionUser || { email: email.trim().toLowerCase() });
-      await checkSession();
-      navigate('/dashboard');
+      setStep('code');
+      setError(null);
+    } else if (res.requires_verification || res.data?.requires_verification) {
+      setStep('code');
+      setError('This email already has an account awaiting verification. Enter the code or request a new one.');
     } else {
       setError(res.error || 'Something went wrong.');
     }
@@ -42,7 +43,7 @@ export default function SignUp() {
     const res = await verifyCode(email.trim().toLowerCase(), code.trim());
     setPending(false);
     if (res.success) {
-      setSessionUser(res.email || res.data?.email || email);
+      setSessionUser(res.user || res.data?.user || { email: email.trim().toLowerCase() });
       await checkSession();
       navigate('/dashboard');
     } else {
@@ -73,7 +74,7 @@ export default function SignUp() {
             <>
               <div>
                 <h1 className="text-lg font-bold text-slate-100">Create your account</h1>
-                <p className="text-xs text-slate-400 mt-1">Create your secure AEGIS workspace in seconds.</p>
+                <p className="text-xs text-slate-400 mt-1">We'll verify your email before activating your AEGIS workspace.</p>
               </div>
               <form onSubmit={handleSignup} className="space-y-3">
                 <div className="relative">
