@@ -1,7 +1,7 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from routes.monitor import monitor_bp
-from utils.model_loader import load_model
+from utils.model_loader import load_model, get_model_status
 from routes.prediction import prediction_bp
 from routes.status import status_bp
 from routes.history import history_bp
@@ -11,70 +11,41 @@ from routes.auth import auth_bp
 
 app = Flask(__name__)
 
-# Allow frontend communication with credentials support
-CORS(app, supports_credentials=True, origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000", "*"])
+# Allow the local Vite/React console to communicate with Flask.
+CORS(
+    app,
+    supports_credentials=True,
+    origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+)
 
-
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:5173')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
-
-
-# Load machine learning model
+# Try loading the model at startup. Missing assets no longer crash Flask.
 model = load_model()
 
-
 # Register API routes
-app.register_blueprint(
-    prediction_bp,
-    url_prefix="/api"
-)
-
-app.register_blueprint(
-    status_bp,
-    url_prefix="/api"
-)
-
-app.register_blueprint(
-    history_bp,
-    url_prefix="/api"
-)
-
-app.register_blueprint(
-    live_scanner_bp,
-    url_prefix="/api"
-)
-
-app.register_blueprint(
-    auth_bp,
-    url_prefix="/api"
-)
-app.register_blueprint(
-    monitor_bp,
-    url_prefix="/api"
-)
+app.register_blueprint(prediction_bp, url_prefix="/api")
+app.register_blueprint(status_bp, url_prefix="/api")
+app.register_blueprint(history_bp, url_prefix="/api")
+app.register_blueprint(live_scanner_bp, url_prefix="/api")
+app.register_blueprint(auth_bp, url_prefix="/api")
+app.register_blueprint(monitor_bp, url_prefix="/api")
 
 
 @app.route("/")
 def home():
-
+    model_status = get_model_status()
     return jsonify({
-
         "message": "IDS Backend API is running",
-
-        "model": "Random Forest Loaded",
-
-        "status": "active"
-
+        "model": "Random Forest",
+        "ml_ready": model_status["ready"],
+        "status": "active" if model_status["ready"] else "degraded",
+        "model_error": model_status["error"],
     })
 
 
 if __name__ == "__main__":
-
-    app.run(
-        debug=True
-    )
+    app.run(debug=True)
