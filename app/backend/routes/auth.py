@@ -1,6 +1,5 @@
 import os
 import random
-import sqlite3
 import hashlib
 import secrets
 import smtplib
@@ -8,6 +7,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
+from utils.database import get_db
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -24,37 +24,6 @@ SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
 
 SESSION_DAYS = 14
-
-
-def get_db():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL COLLATE NOCASE,
-            password_hash TEXT NOT NULL,
-            company TEXT,
-            verification_code TEXT,
-            is_verified INTEGER DEFAULT 0,
-            created_at TEXT
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS sessions (
-            token TEXT PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            created_at TEXT NOT NULL,
-            expires_at TEXT NOT NULL,
-            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-    """)
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)")
-    conn.commit()
-    return conn
 
 
 def hash_password(password):
@@ -224,12 +193,13 @@ def register():
             }), 503
 
         return jsonify(response), 201
-    except sqlite3.IntegrityError:
-        return jsonify({
-            "success": False,
-            "error": "An account with this email already exists. Please sign in instead."
-        }), 409
     except Exception as exc:
+        message = str(exc).lower()
+        if "unique" in message or "duplicate" in message:
+            return jsonify({
+                "success": False,
+                "error": "An account with this email already exists. Please sign in instead."
+            }), 409
         return jsonify({"success": False, "error": str(exc)}), 500
 
 
