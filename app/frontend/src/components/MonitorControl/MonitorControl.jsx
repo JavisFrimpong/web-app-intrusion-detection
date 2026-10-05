@@ -14,12 +14,12 @@ function formatUptime(seconds) {
 
 export default function MonitorControl() {
   const {
-    running, uptimeSeconds, target, checking, actionPending, error, backendReachable, start, stop
+    running, uptimeSeconds, target, checking, actionPending, error, backendReachable, sensorOnline, start, stop
   } = useMonitorControl();
 
   const [targetInput, setTargetInput] = useState('');
 
-  const canStart = targetInput.trim().length > 0 && !checking && !actionPending && backendReachable;
+  const canStart = targetInput.trim().length > 0 && !checking && !actionPending && backendReachable && sensorOnline;
 
   const handleStart = () => {
     if (!canStart) return;
@@ -42,12 +42,20 @@ export default function MonitorControl() {
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-100">
-              {checking ? 'Checking monitoring status…' : running ? 'Monitoring is ON' : 'Monitoring is OFF'}
+              {checking
+                ? 'Checking monitoring status…'
+                : running
+                  ? 'Monitoring is ON'
+                  : sensorOnline
+                    ? 'AEGIS Sensor is ready'
+                    : 'AEGIS Sensor is offline'}
             </h3>
             <p className="text-xs text-slate-400 font-sans">
               {running
                 ? `Watching ${target ? target : 'your site'}${uptimeSeconds != null ? ` — running for ${formatUptime(uptimeSeconds)}` : ''}. Only traffic to this address is captured.`
-                : 'Enter the website you want to watch, then turn monitoring on.'}
+                : sensorOnline
+                  ? 'Enter the website you want to watch, then turn monitoring on.'
+                  : 'Start the Windows/Npcap sensor for this account before beginning live monitoring.'}
             </p>
           </div>
         </div>
@@ -63,7 +71,7 @@ export default function MonitorControl() {
               onChange={(e) => setTargetInput(e.target.value)}
               placeholder="e.g. mywebsite.com — required"
               className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-sm text-slate-200 placeholder-slate-600 font-mono focus:outline-none focus:border-cyan-500/50"
-              disabled={checking || actionPending || !backendReachable}
+              disabled={checking || actionPending || !backendReachable || !sensorOnline}
             />
           </div>
           <button
@@ -95,7 +103,12 @@ export default function MonitorControl() {
       )}
 
       {!backendReachable && (
-        <p className="text-[11px] text-amber-400 font-mono">Can't reach the server to check monitoring status.</p>
+        <p className="text-[11px] text-amber-400 font-mono">Can't reach the hosted AEGIS API.</p>
+      )}
+      {backendReachable && !sensorOnline && !checking && (
+        <div className="p-2.5 rounded-lg bg-amber-950/30 border border-amber-500/25 text-[11px] text-amber-300 font-mono">
+          API connected, but your Windows sensor is offline. Open Settings → Windows Sensor Connection, copy your sensor credential, then run start_sensor.bat as Administrator.
+        </div>
       )}
       {error && (
         <div className="p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/30 text-xs text-rose-300 flex items-center gap-2">
