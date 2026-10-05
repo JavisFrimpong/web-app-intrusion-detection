@@ -58,13 +58,17 @@ def send_verification_email(recipient_email, recipient_name, otp_code):
     Sends a formatted 6-digit OTP verification email via SMTP (e.g. Gmail / SendGrid / Custom SMTP).
     """
     if not SMTP_USER or not SMTP_PASS:
+        if os.environ.get("VERCEL"):
+            print("[AEGIS] SMTP is not configured in Vercel. Verification email was not sent.")
+            return False
+
         print(f"\n========================================================")
         print(f"📧 EMAIL VERIFICATION CODE DISPATCH (LOCAL TERMINAL DISPATCH)")
         print(f"Recipient: {recipient_email} ({recipient_name})")
         print(f"6-Digit Verification Code: {otp_code}")
         print(f"Notice: Set SMTP_USER and SMTP_PASS in environment variables or .env file for live SMTP email delivery.")
         print(f"========================================================\n")
-        return True
+        return False
 
     try:
         msg = MIMEMultipart("alternative")
@@ -194,8 +198,13 @@ def register():
             "requires_verification": True
         }
 
-        # If SMTP fails or credentials invalid, supply fallback code in response so client is never stuck
         if not email_sent:
+            if os.environ.get("VERCEL"):
+                return jsonify({
+                    "success": False,
+                    "error": "Verification email service is not configured. Please contact the administrator."
+                }), 503
+
             resp_data["verification_code"] = otp_code
             resp_data["message"] = f"Verification code generated for {email}. (Code: {otp_code})"
 
@@ -300,6 +309,12 @@ def resend_code():
             "message": f"A new 6-digit verification code has been sent to {email}."
         }
         if not email_sent:
+            if os.environ.get("VERCEL"):
+                return jsonify({
+                    "success": False,
+                    "error": "Verification email service is not configured. Please contact the administrator."
+                }), 503
+
             resp["verification_code"] = new_otp
             resp["message"] = f"New verification code generated for {email}. (Code: {new_otp})"
 
