@@ -10,6 +10,7 @@ from routes.sensor import sensor_bp
 from routes.websites import websites_bp
 from routes.ingestion import ingestion_bp
 from utils.database import initialize_database
+from utils.ml_engine import model_status
 
 
 app = Flask(__name__)
@@ -38,6 +39,7 @@ CORS(
 
 # Initialize the persistent database schema at startup.
 initialize_database()
+print(f"[AEGIS ML] startup status: {model_status()}")
 
 # Register API routes
 app.register_blueprint(prediction_bp, url_prefix="/api")
