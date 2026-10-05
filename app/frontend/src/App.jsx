@@ -11,6 +11,7 @@ import ThreatDetection from './pages/ThreatDetection/ThreatDetection';
 import TrafficAnalysis from './pages/TrafficAnalysis/TrafficAnalysis';
 import Reports from './pages/Reports/Reports';
 import Settings from './pages/Settings/Settings';
+import Websites from './pages/Websites/Websites';
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
             }
           >
             <Route index element={<Dashboard />} />
+            <Route path="websites" element={<Websites />} />
             <Route path="threat-detection" element={<ThreatDetection />} />
             <Route path="traffic-analysis" element={<TrafficAnalysis />} />
             <Route path="reports" element={<Reports />} />
