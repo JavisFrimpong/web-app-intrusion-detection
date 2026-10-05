@@ -140,7 +140,7 @@ export default function Landing() {
 
             <motion.div variants={fadeUp} className="mt-9 grid max-w-xl grid-cols-3 gap-3">
               {[
-                ['99.2%', 'Model accuracy'],
+                ['99.7%', 'Model accuracy'],
                 ['78', 'Flow features'],
                 ['24/7', 'Monitoring ready'],
               ].map(([value, label]) => (
@@ -288,7 +288,7 @@ export default function Landing() {
               <div className="mt-8 space-y-4">
                 {[
                   ['Real packet telemetry', 'Captured by the AEGIS Windows sensor using Npcap/Scapy.'],
-                  ['Hosted ML inference', 'Flow features are classified by the Flask Random Forest service.'],
+                  ['Sensor-side ML inference', 'The Windows AEGIS sensor classifies captured flows with the Random Forest model, then securely sends results to the hosted Flask API.'],
                   ['Tenant separation', 'Every signed-in account receives its own isolated detection history.'],
                 ].map(([title, body]) => (
                   <div key={title} className="flex gap-3">
