@@ -69,7 +69,7 @@ def stop_capture(proc):
     return None
 
 
-def start_capture(target):
+def start_capture(target, user_id):
     host, target_ip = clean_target(target)
     if not target_ip:
         raise RuntimeError("A valid monitoring target is required.")
@@ -82,6 +82,7 @@ def start_capture(target):
     env["AEGIS_API_URL"] = API_URL
     if SENSOR_TOKEN:
         env["AEGIS_SENSOR_TOKEN"] = SENSOR_TOKEN
+    env["AEGIS_USER_ID"] = str(user_id)
 
     proc = subprocess.Popen(
         [sys.executable, CAPTURE_SCRIPT, "--target-ip", target_ip],
@@ -165,9 +166,12 @@ def main():
 
                     if command == "start":
                         requested_target = payload.get("target")
+                        requested_user_id = payload.get("user_id")
+                        if requested_user_id is None:
+                            raise RuntimeError("Start command did not include a user account.")
                         proc = stop_capture(proc)
-                        print("Starting monitoring for:", requested_target)
-                        proc, target, target_ip = start_capture(requested_target)
+                        print("Starting monitoring for:", requested_target, "account:", requested_user_id)
+                        proc, target, target_ip = start_capture(requested_target, requested_user_id)
                         print("Monitoring target IP:", target_ip)
 
                     elif command == "stop":
