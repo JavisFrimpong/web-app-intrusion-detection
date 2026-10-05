@@ -15,6 +15,8 @@ def status():
         "ml_ready": bool(ml["ready"]),
         "inference_mode": "hosted-random-forest",
         "feature_count": ml.get("feature_count", 0),
+        "tree_count": ml.get("tree_count", 0),
+        "model_artifact": ml.get("artifact"),
         "message": (
             "AEGIS hosted Random Forest inference is ready."
             if ml["ready"]
