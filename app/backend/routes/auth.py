@@ -11,7 +11,11 @@ from flask import Blueprint, request, jsonify
 auth_bp = Blueprint("auth", __name__)
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.abspath(os.path.join(BACKEND_DIR, "../traffic-monitor/predictions.db"))
+DB_PATH = (
+    "/tmp/aegis_predictions.db"
+    if os.environ.get("VERCEL")
+    else os.path.abspath(os.path.join(BACKEND_DIR, "../traffic-monitor/predictions.db"))
+)
 
 # SMTP Email Configuration
 SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
