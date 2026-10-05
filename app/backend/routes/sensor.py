@@ -6,14 +6,9 @@ from flask import Blueprint, jsonify, request
 
 from routes.history import get_db_connection
 from utils.database import get_db
-from utils.label_mapper import load_label_mapping
-from utils.model_loader import load_model
-from utils.preprocessing import preprocess_input
 
 sensor_bp = Blueprint("sensor", __name__)
 
-_model = load_model()
-_labels = load_label_mapping()
 _lock = threading.Lock()
 _states = {}
 
@@ -170,34 +165,10 @@ def sensor_classify():
     if error:
         return error
 
-    if _model is None:
-        return jsonify({
-            "success": False,
-            "error": "Hosted inference is unavailable. Use the Windows sensor's local Random Forest model."
-        }), 503
-
-    data = request.get_json(silent=True) or {}
-    features = data.get("features")
-    if not isinstance(features, dict) or not features:
-        return jsonify({"success": False, "error": "A feature dictionary is required."}), 400
-
-    try:
-        processed = preprocess_input(features)
-        prediction = int(_model.predict(processed)[0])
-        probabilities = _model.predict_proba(processed)[0]
-        confidence = round(float(max(probabilities)) * 100.0, 2)
-        attack_type = _labels.get(
-            prediction,
-            "BENIGN" if prediction == 0 else f"Unknown ({prediction})",
-        )
-        return jsonify({
-            "success": True,
-            "prediction": prediction,
-            "attack_type": attack_type,
-            "confidence": confidence,
-        })
-    except Exception as exc:
-        return jsonify({"success": False, "error": str(exc)}), 400
+    return jsonify({
+        "success": False,
+        "error": "Hosted classification is disabled in production. The authenticated Windows sensor performs Random Forest inference locally and uploads only the resulting telemetry."
+    }), 503
 
 
 @sensor_bp.route("/sensor/result", methods=["POST"])
