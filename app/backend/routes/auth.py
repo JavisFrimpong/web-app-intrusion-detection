@@ -7,6 +7,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
 from utils.database import get_db
 
 auth_bp = Blueprint("auth", __name__)
@@ -27,8 +28,25 @@ SESSION_DAYS = 14
 
 
 def hash_password(password):
-    # Keep compatibility with accounts created by the current build.
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    return generate_password_hash(password, method="pbkdf2:sha256", salt_length=16)
+
+
+def verify_password(stored_hash, password):
+    if not stored_hash:
+        return False
+
+    # Legacy accounts used a raw SHA-256 digest. Keep them working and
+    # transparently upgrade the hash after the next successful sign-in.
+    if len(stored_hash) == 64 and all(ch in "0123456789abcdef" for ch in stored_hash.lower()):
+        return secrets.compare_digest(
+            stored_hash.lower(),
+            hashlib.sha256(password.encode("utf-8")).hexdigest(),
+        )
+
+    try:
+        return check_password_hash(stored_hash, password)
+    except Exception:
+        return False
 
 
 def generate_otp_code():
@@ -156,9 +174,19 @@ def register():
             }), 409
 
         conn.execute("""
-            INSERT INTO users (name, email, password_hash, company, verification_code, is_verified, created_at)
-            VALUES (?, ?, ?, ?, NULL, 1, ?)
-        """, (name, email, hash_password(password), company, datetime.utcnow().isoformat()))
+            INSERT INTO users (
+                name, email, password_hash, company, verification_code,
+                sensor_token, is_verified, created_at
+            )
+            VALUES (?, ?, ?, ?, NULL, ?, 1, ?)
+        """, (
+            name,
+            email,
+            hash_password(password),
+            company,
+            secrets.token_urlsafe(32),
+            datetime.utcnow().isoformat(),
+        ))
         conn.commit()
         user = conn.execute(
             "SELECT * FROM users WHERE lower(email) = lower(?) LIMIT 1", (email,)
@@ -294,9 +322,24 @@ def login():
         conn = get_db()
         user = conn.execute("SELECT * FROM users WHERE lower(email) = lower(?)", (email,)).fetchone()
 
-        if not user or user["password_hash"] != hash_password(password):
+        if not user or not verify_password(user["password_hash"], password):
             conn.close()
             return jsonify({"success": False, "error": "Invalid email or password."}), 401
+
+        if len(user["password_hash"]) == 64:
+            conn.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (hash_password(password), user["id"]),
+            )
+            conn.commit()
+
+        if not user["sensor_token"]:
+            conn.execute(
+                "UPDATE users SET sensor_token = ? WHERE id = ?",
+                (secrets.token_urlsafe(32), user["id"]),
+            )
+            conn.commit()
+            user = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
 
         if int(user["is_verified"] or 0) != 1:
             conn.execute(
@@ -356,6 +399,32 @@ def logout():
         conn.commit()
         conn.close()
     return jsonify({"success": True, "message": "Signed out."})
+
+
+@auth_bp.route("/auth/sensor-config", methods=["GET", "POST", "OPTIONS"])
+def sensor_config():
+    if request.method == "OPTIONS":
+        return jsonify({"success": True}), 200
+
+    user, error = require_authenticated_user()
+    if error:
+        return error
+
+    conn = get_db()
+    current = conn.execute("SELECT sensor_token FROM users WHERE id = ?", (user["id"],)).fetchone()
+    token = current["sensor_token"] if current else None
+
+    if request.method == "POST" or not token:
+        token = secrets.token_urlsafe(32)
+        conn.execute("UPDATE users SET sensor_token = ? WHERE id = ?", (token, user["id"]))
+        conn.commit()
+
+    conn.close()
+    return jsonify({
+        "success": True,
+        "sensor_token": token,
+        "api_url": request.host_url.rstrip("/") + "/api",
+    })
 
 
 @auth_bp.route("/auth/delete-account", methods=["POST", "OPTIONS"])
