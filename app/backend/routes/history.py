@@ -8,7 +8,7 @@ history_bp = Blueprint("history", __name__)
 
 # Absolute path to the SQLite database
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = (
+DB_PATH = os.environ.get("AEGIS_DB_PATH") or (
     "/tmp/aegis_predictions.db"
     if os.environ.get("VERCEL")
     else os.path.abspath(os.path.join(BACKEND_DIR, "../traffic-monitor/predictions.db"))
