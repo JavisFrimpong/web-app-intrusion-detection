@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 
 ASSET_DIR = Path(__file__).resolve().parent.parent / "model_assets" / "rf_compact"
+BINARY_ASSET = ASSET_DIR / "model.npz.xz"
 PART_GLOB = "part_*.b64"
 
 
@@ -36,12 +37,15 @@ class CompactRandomForest:
 
     def _load(self):
         try:
-            parts = sorted(ASSET_DIR.glob(PART_GLOB))
-            if not parts:
-                raise FileNotFoundError("Compact Random Forest artifact parts are missing.")
+            if BINARY_ASSET.exists():
+                packed = lzma.decompress(BINARY_ASSET.read_bytes())
+            else:
+                parts = sorted(ASSET_DIR.glob(PART_GLOB))
+                if not parts:
+                    raise FileNotFoundError("Compact Random Forest artifact is missing.")
+                encoded = "".join(p.read_text(encoding="ascii").strip() for p in parts)
+                packed = lzma.decompress(base64.b64decode(encoded))
 
-            encoded = "".join(p.read_text(encoding="ascii").strip() for p in parts)
-            packed = lzma.decompress(base64.b64decode(encoded))
             data = np.load(io.BytesIO(packed), allow_pickle=False)
 
             self.tree_offsets = data["tree_offsets"]
