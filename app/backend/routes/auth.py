@@ -3,6 +3,7 @@ import random
 import hashlib
 import secrets
 import smtplib
+import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
@@ -23,6 +24,8 @@ SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASS = os.environ.get("SMTP_PASS", "")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "AEGIS SOC <onboarding@resend.dev>")
 
 SESSION_DAYS = 14
 
@@ -96,23 +99,44 @@ def require_authenticated_user():
     return user, None
 
 
-def send_verification_email(recipient_email, recipient_name, otp_code):
-    if not SMTP_USER or not SMTP_PASS:
-        print(f"[AEGIS] SMTP not configured. Verification code for {recipient_email}: {otp_code}")
+def send_email_via_resend(recipient_email, subject, text_body, html_body):
+    if not RESEND_API_KEY:
         return False
 
     try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"AEGIS SOC - Your Email Verification Code: {otp_code}"
-        msg["From"] = f"AEGIS Enterprise Security <{SMTP_USER}>"
-        msg["To"] = recipient_email
-
-        text_body = (
-            f"Hello {recipient_name},\n\n"
-            f"Your AEGIS SOC verification code is: {otp_code}\n\n"
-            "This code will expire in 10 minutes."
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": EMAIL_FROM,
+                "to": [recipient_email],
+                "subject": subject,
+                "text": text_body,
+                "html": html_body,
+            },
+            timeout=15,
         )
-        html_body = f"""
+        if response.ok:
+            return True
+
+        print(f"[AEGIS] Resend API error {response.status_code}: {response.text}")
+        return False
+    except Exception as exc:
+        print(f"[AEGIS] Resend request error: {exc}")
+        return False
+
+
+def send_verification_email(recipient_email, recipient_name, otp_code):
+    subject = f"AEGIS SOC - Your Email Verification Code: {otp_code}"
+    text_body = (
+        f"Hello {recipient_name},\n\n"
+        f"Your AEGIS SOC verification code is: {otp_code}\n\n"
+        "This code will expire in 10 minutes."
+    )
+    html_body = f"""
         <!doctype html>
         <html>
           <body style="font-family:Segoe UI,Arial,sans-serif;background:#020617;color:#f8fafc;padding:24px">
@@ -126,6 +150,19 @@ def send_verification_email(recipient_email, recipient_name, otp_code):
           </body>
         </html>
         """
+
+    if send_email_via_resend(recipient_email, subject, text_body, html_body):
+        return True
+
+    if not SMTP_USER or not SMTP_PASS:
+        print(f"[AEGIS] No email provider configured for verification email to {recipient_email}")
+        return False
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"AEGIS Enterprise Security <{SMTP_USER}>"
+        msg["To"] = recipient_email
         msg.attach(MIMEText(text_body, "plain"))
         msg.attach(MIMEText(html_body, "html"))
 
@@ -142,22 +179,13 @@ def send_verification_email(recipient_email, recipient_name, otp_code):
 
 
 def send_password_reset_email(recipient_email, recipient_name, reset_code):
-    if not SMTP_USER or not SMTP_PASS:
-        print(f"[AEGIS] SMTP not configured. Password reset code for {recipient_email}: {reset_code}")
-        return False
-
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"AEGIS SOC - Password Reset Code: {reset_code}"
-        msg["From"] = f"AEGIS Enterprise Security <{SMTP_USER}>"
-        msg["To"] = recipient_email
-
-        text_body = (
-            f"Hello {recipient_name},\n\n"
-            f"Your AEGIS SOC password reset code is: {reset_code}\n\n"
-            "This code expires in 10 minutes. If you did not request a password reset, ignore this email."
-        )
-        html_body = f"""
+    subject = f"AEGIS SOC - Password Reset Code: {reset_code}"
+    text_body = (
+        f"Hello {recipient_name},\n\n"
+        f"Your AEGIS SOC password reset code is: {reset_code}\n\n"
+        "This code expires in 10 minutes. If you did not request a password reset, ignore this email."
+    )
+    html_body = f"""
         <!doctype html>
         <html>
           <body style="font-family:Segoe UI,Arial,sans-serif;background:#020617;color:#f8fafc;padding:24px">
@@ -171,6 +199,19 @@ def send_password_reset_email(recipient_email, recipient_name, reset_code):
           </body>
         </html>
         """
+
+    if send_email_via_resend(recipient_email, subject, text_body, html_body):
+        return True
+
+    if not SMTP_USER or not SMTP_PASS:
+        print(f"[AEGIS] No email provider configured for password reset email to {recipient_email}")
+        return False
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"AEGIS Enterprise Security <{SMTP_USER}>"
+        msg["To"] = recipient_email
         msg.attach(MIMEText(text_body, "plain"))
         msg.attach(MIMEText(html_body, "html"))
 
