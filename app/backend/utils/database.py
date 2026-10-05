@@ -145,6 +145,19 @@ def initialize_database(db=None):
                     source_ip TEXT
                 )
             """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS monitored_websites (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    domain TEXT NOT NULL,
+                    label TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    http_status INTEGER,
+                    last_checked_at TEXT,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(user_id, domain)
+                )
+            """)
             db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires_at TEXT")
             db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_code TEXT")
             db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password_reset_expires_at TEXT")
@@ -203,6 +216,20 @@ def initialize_database(db=None):
                     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             """)
+            db.execute("""
+                CREATE TABLE IF NOT EXISTS monitored_websites (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    domain TEXT NOT NULL,
+                    label TEXT,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    http_status INTEGER,
+                    last_checked_at TEXT,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(user_id, domain),
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            """)
 
             if "verification_expires_at" not in _sqlite_column_names(db, "users"):
                 db.execute("ALTER TABLE users ADD COLUMN verification_expires_at TEXT")
@@ -221,6 +248,7 @@ def initialize_database(db=None):
         db.execute("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_predictions_user_id ON predictions(user_id)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_alerts_user_id ON heuristic_alerts(user_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_websites_user_id ON monitored_websites(user_id)")
         db.commit()
         _initialized = True
 
