@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Settings as SettingsIcon, 
   Server, 
@@ -15,17 +15,19 @@ import {
   Laptop,
   Trash2,
   Wrench,
-  Wifi
+  Wifi,
+  KeyRound,
+  Copy
 } from 'lucide-react';
-import { getStoredApiUrl, setStoredApiUrl, fetchSystemStatus } from '../../services/api';
-import { deleteUserAccount, getStoredUser } from '../../services/authService';
+import { getStoredApiUrl, setStoredApiUrl, fetchSystemStatus, fetchSensorConfig, regenerateSensorToken } from '../../services/api';
+import { deleteUserAccount } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { useSystemStatus } from '../../hooks/useSystemStatus';
 import { useDetectionHistory } from '../../hooks/useDetectionHistory';
 
 export default function Settings() {
-  const currentUser = getStoredUser();
   const auth = useAuth();
+  const currentUser = auth.user;
   const [apiUrlInput, setApiUrlInput] = useState(getStoredApiUrl());
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
@@ -34,6 +36,9 @@ export default function Settings() {
   const [clearResult, setClearResult] = useState(null);
   const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [sensorConfig, setSensorConfig] = useState(null);
+  const [sensorLoading, setSensorLoading] = useState(true);
+  const [sensorMessage, setSensorMessage] = useState(null);
 
   // Delete Account State
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
@@ -42,6 +47,35 @@ export default function Settings() {
   const [deleteError, setDeleteError] = useState(null);
 
   const { recheckStatus, isOnline: isApiOnline } = useSystemStatus();
+
+  useEffect(() => {
+    let mounted = true;
+    fetchSensorConfig().then((res) => {
+      if (!mounted) return;
+      setSensorConfig(res.success ? res.data : null);
+      setSensorMessage(res.success ? null : (res.error || 'Could not load sensor configuration.'));
+      setSensorLoading(false);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const handleCopySensorToken = async () => {
+    if (!sensorConfig?.sensor_token) return;
+    await navigator.clipboard.writeText(sensorConfig.sensor_token);
+    setSensorMessage('Sensor credential copied.');
+  };
+
+  const handleRegenerateSensorToken = async () => {
+    setSensorLoading(true);
+    const res = await regenerateSensorToken();
+    setSensorLoading(false);
+    if (res.success) {
+      setSensorConfig(res.data);
+      setSensorMessage('A new sensor credential was generated. Update the Windows sensor before monitoring again.');
+    } else {
+      setSensorMessage(res.error || 'Could not regenerate sensor credential.');
+    }
+  };
   const { isOnline: isDbOnline, clearHistory, totalCount } = useDetectionHistory(0);
 
   const handleDeleteAccount = async () => {
@@ -52,7 +86,7 @@ export default function Settings() {
     }
     setDeletingAccount(true);
     setDeleteError(null);
-    const res = await deleteUserAccount(userEmail);
+    const res = await deleteUserAccount();
     setDeletingAccount(false);
     if (res.success) {
       if (auth && auth.logout) {
@@ -195,6 +229,53 @@ export default function Settings() {
         )}
       </div>
 
+      {/* Per-account Windows sensor setup */}
+      <div className="glass-panel p-6 rounded-2xl border border-cyan-500/20 space-y-4">
+        <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
+          <KeyRound className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-base font-bold text-slate-100">
+            Windows Sensor Connection
+          </h2>
+        </div>
+
+        <p className="text-xs text-slate-400 leading-relaxed">
+          This credential links the Windows/Npcap sensor to only this account. Detections uploaded with it are stored in this account's isolated telemetry records.
+        </p>
+
+        <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
+          <input
+            readOnly
+            value={sensorLoading ? 'Loading sensor credential...' : (sensorConfig?.sensor_token || 'Unavailable')}
+            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleCopySensorToken}
+            disabled={sensorLoading || !sensorConfig?.sensor_token}
+            className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs font-bold hover:border-cyan-500/40 disabled:opacity-40 flex items-center justify-center gap-2"
+          >
+            <Copy className="w-4 h-4" /> Copy
+          </button>
+          <button
+            type="button"
+            onClick={handleRegenerateSensorToken}
+            disabled={sensorLoading}
+            className="px-4 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold hover:bg-cyan-500/15 disabled:opacity-40"
+          >
+            Regenerate
+          </button>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 font-mono text-[11px] text-slate-400">
+          <div><span className="text-slate-500">API:</span> {sensorConfig?.api_url || 'https://aegis-ids-api.onrender.com/api'}</div>
+          <div className="mt-1">Set <span className="text-cyan-300">AEGIS_API_URL</span> and <span className="text-cyan-300">AEGIS_SENSOR_TOKEN</span> on the Windows sensor before starting it.</div>
+        </div>
+
+        {sensorMessage && (
+          <p className="text-[11px] text-cyan-300 font-mono">{sensorMessage}</p>
+        )}
+      </div>
+
       {/* Data Management: real, destructive action wired to /history/clear */}
       <div className="glass-panel p-6 rounded-2xl border border-rose-500/20 space-y-4">
         <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
@@ -208,7 +289,7 @@ export default function Settings() {
           <div>
             <p className="text-sm text-slate-200 font-semibold">Clear Detection History</p>
             <p className="text-xs text-slate-400 font-mono mt-0.5">
-              Permanently deletes all {totalCount} stored predictions and heuristic alerts from predictions.db.
+              Permanently deletes all {totalCount} stored predictions and heuristic alerts for this account from the hosted database.
               This cannot be undone.
             </p>
           </div>
@@ -324,8 +405,8 @@ export default function Settings() {
 
           <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
             <span className="text-slate-400 uppercase text-[10px]">Test Validation Accuracy</span>
-            <div className="text-sm font-bold text-emerald-400">99.20% Accuracy</div>
-            <p className="text-[11px] text-slate-500">Sub-10ms Inference Latency</p>
+            <div className="text-sm font-bold text-emerald-400">99.7% Accuracy</div>
+            <p className="text-[11px] text-slate-500">Evaluated on CICIDS2017 test data</p>
           </div>
         </div>
       </div>
@@ -343,7 +424,7 @@ export default function Settings() {
           <div className="space-y-2">
             <h3 className="text-sm font-bold text-slate-200">System Overview</h3>
             <p className="text-xs text-slate-400 leading-relaxed font-sans">
-              AEGIS is an enterprise AI-powered Intrusion Detection & Prevention System (IDS/IPS) that monitors and detects malicious web network traffic using a high-accuracy Random Forest machine learning model trained on the benchmark CICIDS2017 dataset. Built for real-time production threat analysis and Security Operations Center (SOC) telemetry monitoring.
+              AEGIS is an enterprise AI-powered Intrusion Detection System (IDS) that monitors and detects malicious web network traffic using a high-accuracy Random Forest machine learning model trained on the benchmark CICIDS2017 dataset. Built for real-time threat detection and Security Operations Center (SOC) telemetry monitoring.
             </p>
           </div>
 
