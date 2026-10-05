@@ -317,3 +317,52 @@ export const regenerateSensorToken = async () => {
     return { success: false, error: error.response?.data?.error || error.message };
   }
 };
+
+
+// ---------------------------------------------------------------------
+// Monitored websites
+// ---------------------------------------------------------------------
+
+export const fetchWebsites = async () => {
+  const api = createApiClient();
+  try {
+    const response = await api.get('/websites');
+    return { success: true, websites: response.data.websites || [] };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message, websites: [] };
+  }
+};
+
+export const addWebsite = async (domain, label = '') => {
+  const api = createApiClient();
+  try {
+    const response = await api.post('/websites', { domain, label });
+    return { success: true, website: response.data.website };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
+
+export const connectWebsite = async (websiteId) => {
+  const api = createApiClient();
+  try {
+    const response = await api.post(`/websites/${websiteId}/connect`);
+    return { success: true, ...response.data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || error.message,
+      details: error.response?.data?.details,
+    };
+  }
+};
+
+export const deleteWebsite = async (websiteId) => {
+  const api = createApiClient();
+  try {
+    await api.delete(`/websites/${websiteId}`);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.response?.data?.error || error.message };
+  }
+};
