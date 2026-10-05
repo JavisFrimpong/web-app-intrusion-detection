@@ -148,51 +148,36 @@ def register():
             (email,),
         ).fetchone()
 
-        # One email address is permanently one account. We never overwrite an
-        # existing account's password/details from the sign-up endpoint.
         if existing:
             conn.close()
-            if int(existing["is_verified"] or 0) == 1:
-                return jsonify({
-                    "success": False,
-                    "error": "An account with this email already exists. Please sign in instead."
-                }), 409
             return jsonify({
                 "success": False,
-                "error": "An account with this email already exists but is not verified. Use 'Resend code' to finish verification.",
-                "requires_verification": True,
-                "email": email,
+                "error": "An account with this email already exists. Please sign in instead."
             }), 409
 
-        otp_code = generate_otp_code()
         conn.execute("""
             INSERT INTO users (name, email, password_hash, company, verification_code, is_verified, created_at)
-            VALUES (?, ?, ?, ?, ?, 0, ?)
-        """, (name, email, hash_password(password), company, otp_code, datetime.utcnow().isoformat()))
+            VALUES (?, ?, ?, ?, NULL, 1, ?)
+        """, (name, email, hash_password(password), company, datetime.utcnow().isoformat()))
         conn.commit()
+        user = conn.execute(
+            "SELECT * FROM users WHERE lower(email) = lower(?) LIMIT 1", (email,)
+        ).fetchone()
+        token = create_session(conn, user["id"])
         conn.close()
 
-        email_sent = send_verification_email(email, name, otp_code)
-        response = {
+        return jsonify({
             "success": True,
-            "message": f"A 6-digit verification code has been sent to {email}.",
-            "email": email,
-            "requires_verification": True,
-        }
-
-        # Keep local development usable without configured SMTP.
-        if not email_sent and not os.environ.get("RENDER"):
-            response["verification_code"] = otp_code
-
-        if not email_sent and os.environ.get("RENDER"):
-            return jsonify({
-                "success": False,
-                "error": "The account was created, but email delivery is not configured yet. Configure SMTP, then use Resend code.",
-                "requires_verification": True,
-                "email": email,
-            }), 503
-
-        return jsonify(response), 201
+            "message": "Account created successfully.",
+            "token": token,
+            "user": {
+                "id": user["id"],
+                "name": user["name"],
+                "email": user["email"],
+                "company": user["company"],
+                "is_verified": True,
+            },
+        }), 201
     except Exception as exc:
         message = str(exc).lower()
         if "unique" in message or "duplicate" in message:
@@ -314,13 +299,11 @@ def login():
             return jsonify({"success": False, "error": "Invalid email or password."}), 401
 
         if int(user["is_verified"] or 0) != 1:
-            conn.close()
-            return jsonify({
-                "success": False,
-                "error": "Account email is not verified yet. Please verify the account first.",
-                "requires_verification": True,
-                "email": email,
-            }), 403
+            conn.execute(
+                "UPDATE users SET is_verified = 1, verification_code = NULL WHERE id = ?",
+                (user["id"],),
+            )
+            conn.commit()
 
         token = create_session(conn, user["id"])
         conn.close()
