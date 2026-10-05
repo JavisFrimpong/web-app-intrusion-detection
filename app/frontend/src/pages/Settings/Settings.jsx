@@ -1,25 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { 
-  Settings as SettingsIcon, 
-  Server, 
-  Cpu, 
-  Database, 
-  User, 
-  CheckCircle2, 
-  AlertCircle, 
-  AlertTriangle,
-  RefreshCw, 
-  Sliders, 
-  ShieldCheck,
-  Moon,
-  Laptop,
-  Trash2,
-  Wrench,
-  Wifi,
-  KeyRound,
-  Copy
-} from 'lucide-react';
-import { getStoredApiUrl, setStoredApiUrl, fetchSystemStatus, fetchSensorConfig, regenerateSensorToken } from '../../services/api';
+import React, { useState } from 'react';
+import { Settings as SettingsIcon, Server, CheckCircle2, AlertCircle, RefreshCw, Trash2, Wrench, Wifi, User, BellRing, Moon, ShieldAlert } from 'lucide-react';
+import { getStoredApiUrl, setStoredApiUrl, fetchSystemStatus } from '../../services/api';
 import { deleteUserAccount } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { useSystemStatus } from '../../hooks/useSystemStatus';
@@ -29,428 +10,73 @@ export default function Settings() {
   const auth = useAuth();
   const currentUser = auth.user;
   const [apiUrlInput, setApiUrlInput] = useState(getStoredApiUrl());
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [testing, setTesting] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState('cyber-dark');
-  const [clearResult, setClearResult] = useState(null);
-  const [clearing, setClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [sensorConfig, setSensorConfig] = useState(null);
-  const [sensorLoading, setSensorLoading] = useState(true);
-  const [sensorMessage, setSensorMessage] = useState(null);
-
-  // Delete Account State
-  const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
-  const [deleteEmailInput, setDeleteEmailInput] = useState('');
-  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteEmail, setDeleteEmail] = useState('');
   const [deleteError, setDeleteError] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const { recheckStatus, isOnline } = useSystemStatus();
+  const { clearHistory, totalCount } = useDetectionHistory(0);
 
-  const { recheckStatus, isOnline: isApiOnline } = useSystemStatus();
-
-  useEffect(() => {
-    let mounted = true;
-    fetchSensorConfig().then((res) => {
-      if (!mounted) return;
-      setSensorConfig(res.success ? res.data : null);
-      setSensorMessage(res.success ? null : (res.error || 'Could not load sensor configuration.'));
-      setSensorLoading(false);
-    });
-    return () => { mounted = false; };
-  }, []);
-
-  const handleCopySensorToken = async () => {
-    if (!sensorConfig?.sensor_token) return;
-    await navigator.clipboard.writeText(sensorConfig.sensor_token);
-    setSensorMessage('Sensor credential copied.');
-  };
-
-  const handleRegenerateSensorToken = async () => {
-    setSensorLoading(true);
-    const res = await regenerateSensorToken();
-    setSensorLoading(false);
-    if (res.success) {
-      setSensorConfig(res.data);
-      setSensorMessage('A new sensor credential was generated. Update the Windows sensor before monitoring again.');
-    } else {
-      setSensorMessage(res.error || 'Could not regenerate sensor credential.');
-    }
-  };
-  const { isOnline: isDbOnline, clearHistory, totalCount } = useDetectionHistory(0);
-
-  const handleDeleteAccount = async () => {
-    const expectedEmail = (currentUser?.email || '').trim().toLowerCase();
-    const confirmationEmail = deleteEmailInput.trim().toLowerCase();
-
-    if (!expectedEmail || confirmationEmail !== expectedEmail) {
-      setDeleteError('Enter the exact email address for this account to confirm deletion.');
-      return;
-    }
-
-    setDeletingAccount(true);
-    setDeleteError(null);
-    const res = await deleteUserAccount();
-    setDeletingAccount(false);
-    if (res.success) {
-      if (auth && auth.logout) {
-        await auth.logout();
-      } else {
-        window.location.href = '/landing';
-      }
-    } else {
-      setDeleteError(res.error || 'Failed to delete account.');
-    }
-  };
-
-  const handleSaveApiUrl = async (e) => {
+  const testApi = async (e) => {
     e.preventDefault();
     setTesting(true);
-    setTestResult(null);
-
     setStoredApiUrl(apiUrlInput.trim());
     const res = await fetchSystemStatus();
     setTesting(false);
-
-    if (res.success && res.isOnline) {
-      setTestResult({
-        success: true,
-        message: `Successfully connected to Flask API (${res.data.model} - Status: ${res.data.status})`,
-      });
-      recheckStatus();
-    } else {
-      setTestResult({
-        success: false,
-        message: `Could not connect to Flask API at ${apiUrlInput}. Check that the backend server is running.`,
-      });
-    }
+    setTestResult(res.success && res.isOnline ? {ok:true,text:'Monitoring API connected successfully.'}:{ok:false,text:'Could not connect to the monitoring API.'});
+    if (res.success && res.isOnline) recheckStatus();
   };
 
-  const handleClearHistory = async () => {
-    if (!confirmClear) {
-      setConfirmClear(true);
-      return;
-    }
+  const clearData = async () => {
+    if (!confirmClear) return setConfirmClear(true);
     setClearing(true);
-    setClearResult(null);
-    const res = await clearHistory();
+    await clearHistory();
     setClearing(false);
     setConfirmClear(false);
-    setClearResult(
-      res.success
-        ? { success: true, message: 'All stored predictions and alerts were cleared from the database.' }
-        : { success: false, message: res.error || 'Failed to clear history — backend may be offline.' }
-    );
+  };
+
+  const deleteAccount = async () => {
+    if ((deleteEmail||'').trim().toLowerCase() !== (currentUser?.email||'').trim().toLowerCase()) return setDeleteError('Enter the exact account email to confirm deletion.');
+    setDeleting(true);
+    const res = await deleteUserAccount();
+    setDeleting(false);
+    if (res.success) await auth.logout();
+    else setDeleteError(res.error || 'Could not delete account.');
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="glass-panel p-6 rounded-3xl border border-slate-800/80">
-        <div className="flex items-center space-x-3">
-          <div className="p-3 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-            <SettingsIcon className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-slate-100">
-              System & Model Settings
-            </h1>
-            <p className="text-xs text-slate-400 font-mono">
-              Configure backend Flask REST API endpoints, ML hyperparameters, and theme preferences
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <section className="rounded-[28px] border border-slate-800 bg-slate-900/65 p-6">
+        <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10"><SettingsIcon className="h-5 w-5 text-cyan-300"/></div><div><h1 className="text-2xl font-black text-white">Workspace settings</h1><p className="mt-1 text-xs text-slate-500">Manage your monitoring workspace, preferences, and account.</p></div></div>
+      </section>
 
-      {/* Backend API Connection — read-only by default, no route map exposed */}
-      <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div className="flex items-center space-x-2">
-            <Server className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-base font-bold text-slate-100">
-              Backend Connection
-            </h2>
-          </div>
-          <button
-            onClick={() => setShowAdvanced(v => !v)}
-            className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 hover:text-cyan-400 transition-colors"
-          >
-            <Wrench className="w-3.5 h-3.5" />
-            <span>{showAdvanced ? 'Hide advanced' : 'Advanced'}</span>
-          </button>
-        </div>
+      <section className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5"><User className="h-5 w-5 text-cyan-300"/><h2 className="mt-4 text-sm font-bold text-white">Account</h2><p className="mt-1 text-xs text-slate-500">{currentUser?.email || 'Signed-in user'}</p></div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5"><BellRing className="h-5 w-5 text-cyan-300"/><h2 className="mt-4 text-sm font-bold text-white">Alerts</h2><p className="mt-1 text-xs text-slate-500">Suspicious activity notifications enabled</p></div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5"><Moon className="h-5 w-5 text-cyan-300"/><h2 className="mt-4 text-sm font-bold text-white">Appearance</h2><p className="mt-1 text-xs text-slate-500">AEGIS dark interface</p></div>
+      </section>
 
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg border ${isApiOnline ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
-            <Wifi className="w-4 h-4" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-200">
-              {isApiOnline ? 'Connected' : 'Not connected'}
-            </p>
-            <p className="text-[11px] text-slate-500 font-mono">
-              {isApiOnline ? 'The dashboard is receiving live data from the server.' : 'Make sure the backend is running.'}
-            </p>
-          </div>
-        </div>
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4"><div className="flex items-center gap-2"><Server className="h-5 w-5 text-cyan-300"/><h2 className="text-sm font-bold text-white">Monitoring service</h2></div><button onClick={()=>setShowAdvanced(!showAdvanced)} className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-cyan-300"><Wrench className="h-3.5 w-3.5"/>{showAdvanced?'Hide advanced':'Advanced'}</button></div>
+        <div className="mt-4 flex items-center gap-3"><div className={`flex h-9 w-9 items-center justify-center rounded-xl border ${isOnline?'border-emerald-500/25 bg-emerald-500/10 text-emerald-300':'border-amber-500/25 bg-amber-500/10 text-amber-300'}`}><Wifi className="h-4 w-4"/></div><div><p className="text-sm font-semibold text-slate-200">{isOnline?'Connected':'Not connected'}</p><p className="text-xs text-slate-500">Connection between the dashboard and AEGIS monitoring API</p></div></div>
+        {showAdvanced && <form onSubmit={testApi} className="mt-5 space-y-3 border-t border-slate-800 pt-4"><label className="text-xs text-slate-400">API endpoint</label><div className="flex flex-col gap-3 sm:flex-row"><input value={apiUrlInput} onChange={(e)=>setApiUrlInput(e.target.value)} className="flex-1 rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 text-xs text-cyan-200 outline-none focus:border-cyan-400/50"/><button disabled={testing} className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 py-3 text-xs font-black text-slate-950">{testing?<RefreshCw className="h-4 w-4 animate-spin"/>:<CheckCircle2 className="h-4 w-4"/>} Save & test</button></div>{testResult&&<div className={`rounded-xl border p-3 text-xs ${testResult.ok?'border-emerald-500/25 bg-emerald-500/10 text-emerald-300':'border-amber-500/25 bg-amber-500/10 text-amber-300'}`}>{testResult.text}</div>}</form>}
+      </section>
 
-        {showAdvanced && (
-          <form onSubmit={handleSaveApiUrl} className="space-y-3 pt-2 border-t border-slate-800/80">
-            <div className="space-y-1.5">
-              <label className="text-xs font-mono text-slate-300">
-                Backend Server Address (developer setting — leave as default unless you know why you're changing it)
-              </label>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <input
-                  type="text"
-                  value={apiUrlInput}
-                  onChange={(e) => setApiUrlInput(e.target.value)}
-                  placeholder="http://127.0.0.1:5000/api"
-                  className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500/50"
-                />
-                <button
-                  type="submit"
-                  disabled={testing}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-slate-950 font-mono font-bold text-xs uppercase tracking-wider hover:brightness-110 transition-all shadow-md shadow-cyan-500/20 flex items-center justify-center gap-2 disabled:opacity-50 shrink-0"
-                >
-                  {testing ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <CheckCircle2 className="w-4 h-4 shrink-0" />}
-                  <span>Save & Test</span>
-                </button>
-              </div>
-            </div>
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6">
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-4"><ShieldAlert className="h-5 w-5 text-cyan-300"/><h2 className="text-sm font-bold text-white">Monitoring data</h2></div>
+        <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-semibold text-slate-200">Clear event history</p><p className="mt-1 text-xs text-slate-500">Delete {totalCount} stored monitoring events and alerts from this account.</p></div><button onClick={clearData} disabled={clearing} className={`rounded-xl border px-4 py-2.5 text-xs font-bold ${confirmClear?'border-rose-500 bg-rose-600 text-white':'border-rose-500/30 bg-rose-500/10 text-rose-300'}`}>{clearing?'Clearing…':confirmClear?'Confirm deletion':'Clear history'}</button></div>
+      </section>
 
-            {testResult && (
-              <div className={`p-3 rounded-xl border text-xs font-mono flex items-center space-x-2 ${
-                testResult.success 
-                  ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' 
-                  : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
-              }`}>
-                {testResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" /> : <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />}
-                <span>{testResult.message}</span>
-              </div>
-            )}
-          </form>
-        )}
-      </div>
-
-      {/* Per-account Windows sensor setup */}
-      <div className="glass-panel p-6 rounded-2xl border border-cyan-500/20 space-y-4">
-        <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
-          <KeyRound className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-base font-bold text-slate-100">
-            Windows Sensor Connection
-          </h2>
-        </div>
-
-        <p className="text-xs text-slate-400 leading-relaxed">
-          This credential links the Windows/Npcap sensor to only this account. Detections uploaded with it are stored in this account's isolated telemetry records.
-        </p>
-
-        <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-          <input
-            readOnly
-            value={sensorLoading ? 'Loading sensor credential...' : (sensorConfig?.sensor_token || 'Unavailable')}
-            className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-cyan-300 focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={handleCopySensorToken}
-            disabled={sensorLoading || !sensorConfig?.sensor_token}
-            className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-200 text-xs font-bold hover:border-cyan-500/40 disabled:opacity-40 flex items-center justify-center gap-2"
-          >
-            <Copy className="w-4 h-4" /> Copy
-          </button>
-          <button
-            type="button"
-            onClick={handleRegenerateSensorToken}
-            disabled={sensorLoading}
-            className="px-4 py-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold hover:bg-cyan-500/15 disabled:opacity-40"
-          >
-            Regenerate
-          </button>
-        </div>
-
-        <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 font-mono text-[11px] text-slate-400">
-          <div><span className="text-slate-500">API:</span> {sensorConfig?.api_url || 'https://aegis-ids-api.onrender.com/api'}</div>
-          <div className="mt-1">Set <span className="text-cyan-300">AEGIS_API_URL</span> and <span className="text-cyan-300">AEGIS_SENSOR_TOKEN</span> on the Windows sensor before starting it.</div>
-        </div>
-
-        {sensorMessage && (
-          <p className="text-[11px] text-cyan-300 font-mono">{sensorMessage}</p>
-        )}
-      </div>
-
-      {/* Data Management: real, destructive action wired to /history/clear */}
-      <div className="glass-panel p-6 rounded-2xl border border-rose-500/20 space-y-4">
-        <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
-          <Trash2 className="w-5 h-5 text-rose-400" />
-          <h2 className="text-base font-bold text-slate-100">
-            Data Management
-          </h2>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <p className="text-sm text-slate-200 font-semibold">Clear Detection History</p>
-            <p className="text-xs text-slate-400 font-mono mt-0.5">
-              Permanently deletes all {totalCount} stored predictions and heuristic alerts for this account from the hosted database.
-              This cannot be undone.
-            </p>
-          </div>
-          <button
-            onClick={handleClearHistory}
-            disabled={!isDbOnline || clearing}
-            className={`px-5 py-2.5 rounded-xl font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-40 shrink-0 ${
-              confirmClear
-                ? 'bg-rose-600 text-white hover:bg-rose-500'
-                : 'bg-slate-900 border border-rose-500/40 text-rose-300 hover:bg-rose-950/40'
-            }`}
-          >
-            {clearing ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Trash2 className="w-4 h-4 shrink-0" />}
-            <span>{confirmClear ? 'Confirm: Delete Everything' : 'Clear Detection History'}</span>
-          </button>
-        </div>
-
-        {!isDbOnline && (
-          <p className="text-[11px] text-amber-400 font-mono">Backend offline — reconnect before clearing history.</p>
-        )}
-
-        {clearResult && (
-          <div className={`p-3 rounded-xl border text-xs font-mono flex items-center space-x-2 ${
-            clearResult.success
-              ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
-              : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
-          }`}>
-            {clearResult.success ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" /> : <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />}
-            <span>{clearResult.message}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Danger Zone: Delete User Account */}
-      <div className="glass-panel p-6 rounded-2xl border border-rose-600/40 bg-rose-950/10 space-y-4">
-        <div className="flex items-center space-x-2 pb-3 border-b border-rose-900/40">
-          <AlertTriangle className="w-5 h-5 text-rose-500" />
-          <h2 className="text-base font-bold text-rose-200">
-            Danger Zone — Account Operations
-          </h2>
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <p className="text-sm text-slate-200 font-semibold">Delete Client Account</p>
-            <p className="text-xs text-slate-400 font-mono mt-0.5">
-              Permanently deletes your user credentials, organization references, and session profile from AEGIS Enterprise SOC database.
-            </p>
-          </div>
-          <button
-            onClick={() => setConfirmDeleteAccount(prev => !prev)}
-            className="px-5 py-2.5 rounded-xl font-mono font-bold text-xs uppercase tracking-wider bg-rose-900/40 border border-rose-500/50 text-rose-300 hover:bg-rose-600 hover:text-white transition-all flex items-center justify-center gap-2 shrink-0"
-          >
-            <Trash2 className="w-4 h-4 shrink-0" />
-            <span>{confirmDeleteAccount ? 'Cancel Deletion' : 'Delete Account'}</span>
-          </button>
-        </div>
-
-        {confirmDeleteAccount && (
-          <div className="p-4 rounded-xl bg-slate-950 border border-rose-500/40 space-y-3 mt-3">
-            <p className="text-xs font-mono text-rose-300 font-semibold">
-              Warning: This action is permanent and cannot be undone. Enter your email address to confirm account deletion:
-            </p>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <input
-                type="email"
-                value={deleteEmailInput}
-                onChange={(e) => setDeleteEmailInput(e.target.value)}
-                placeholder={currentUser?.email || "confirm@yourcompany.com"}
-                className="flex-1 px-4 py-2.5 bg-slate-900 border border-rose-500/30 rounded-xl text-xs font-mono text-rose-200 focus:outline-none focus:border-rose-500"
-              />
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deletingAccount || !deleteEmailInput.trim()}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-mono font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 disabled:opacity-50 shrink-0 shadow-lg shadow-rose-600/30"
-              >
-                {deletingAccount ? <RefreshCw className="w-4 h-4 animate-spin shrink-0" /> : <Trash2 className="w-4 h-4 shrink-0" />}
-                <span>Permanently Delete Account</span>
-              </button>
-            </div>
-
-            {deleteError && (
-              <p className="text-xs font-mono text-rose-400 flex items-center gap-1.5 pt-1">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{deleteError}</span>
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Machine Learning Model Specifications */}
-      <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 space-y-4">
-        <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
-          <Cpu className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-base font-bold text-slate-100">
-            Machine Learning Architecture Specs
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs">
-          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
-            <span className="text-slate-400 uppercase text-[10px]">Algorithm</span>
-            <div className="text-sm font-bold text-slate-200">Random Forest Classifier</div>
-            <p className="text-[11px] text-slate-500">n_estimators=100 · criterion='gini'</p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
-            <span className="text-slate-400 uppercase text-[10px]">Benchmark Dataset</span>
-            <div className="text-sm font-bold text-slate-200">CICIDS2017</div>
-            <p className="text-[11px] text-slate-500">78 Network Flow Features</p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800 space-y-1">
-            <span className="text-slate-400 uppercase text-[10px]">Test Validation Accuracy</span>
-            <div className="text-sm font-bold text-emerald-400">99.7% Accuracy</div>
-            <p className="text-[11px] text-slate-500">Evaluated on CICIDS2017 test data</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Project & Developer Info */}
-      <div className="glass-panel p-6 rounded-2xl border border-slate-800/80 space-y-4">
-        <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
-          <Database className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-base font-bold text-slate-100">
-            AEGIS Enterprise System Architecture
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-200">System Overview</h3>
-            <p className="text-xs text-slate-400 leading-relaxed font-sans">
-              AEGIS is an enterprise AI-powered Intrusion Detection System (IDS) that monitors and detects malicious web network traffic using a high-accuracy Random Forest machine learning model trained on the benchmark CICIDS2017 dataset. Built for real-time threat detection and Security Operations Center (SOC) telemetry monitoring.
-            </p>
-          </div>
-
-          <div className="space-y-2 font-mono text-xs bg-slate-950/60 p-4 rounded-xl border border-slate-800">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Frontend Stack:</span>
-              <span className="text-cyan-300 font-bold">React 19 + Vite + Tailwind</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Backend Stack:</span>
-              <span className="text-cyan-300 font-bold">Flask REST API (Python)</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">ML Model:</span>
-              <span className="text-cyan-300 font-bold">Random Forest (Scikit-Learn)</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Dataset:</span>
-              <span className="text-cyan-300 font-bold">Canadian Institute for Cybersecurity (CICIDS2017)</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <section className="rounded-2xl border border-rose-500/20 bg-rose-950/10 p-6">
+        <div className="flex items-center gap-2"><Trash2 className="h-5 w-5 text-rose-400"/><h2 className="text-sm font-bold text-rose-200">Delete account</h2></div>
+        <p className="mt-2 text-xs leading-5 text-slate-500">Permanently remove this account, sessions, and stored monitoring data.</p>
+        {!confirmDelete ? <button onClick={()=>setConfirmDelete(true)} className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs font-bold text-rose-300">Delete account</button> : <div className="mt-4 space-y-3"><input type="email" value={deleteEmail} onChange={(e)=>setDeleteEmail(e.target.value)} placeholder={currentUser?.email || 'Confirm email'} className="w-full rounded-xl border border-rose-500/25 bg-slate-950/60 px-4 py-3 text-sm outline-none focus:border-rose-400"/>{deleteError&&<div className="flex items-center gap-2 text-xs text-rose-300"><AlertCircle className="h-4 w-4"/>{deleteError}</div>}<div className="flex gap-2"><button onClick={deleteAccount} disabled={deleting} className="rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white">{deleting?'Deleting…':'Permanently delete'}</button><button onClick={()=>{setConfirmDelete(false);setDeleteError(null)}} className="rounded-xl border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-400">Cancel</button></div></div>}
+      </section>
     </div>
   );
 }
