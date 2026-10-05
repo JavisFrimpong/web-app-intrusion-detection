@@ -29,6 +29,9 @@ export default function SignUp() {
       setStep('code');
       const codeFound = res.verification_code || res.data?.verification_code;
       if (codeFound) setFallbackCode(codeFound);
+    } else if (res.requires_verification || res.data?.requires_verification) {
+      setStep('code');
+      setError('This email already has an account awaiting verification. Enter the code or request a new one.');
     } else {
       setError(res.error || 'Something went wrong.');
     }
