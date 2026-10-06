@@ -61,7 +61,7 @@ export default function DetectionTable({ detections = [], limit = null, title = 
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0" />
             <input
               type="text"
-              placeholder="Search IP, ID, Attack..."
+              placeholder="Search source, ID, attack..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 sm:w-44 lg:w-56 font-mono"
@@ -98,7 +98,7 @@ export default function DetectionTable({ detections = [], limit = null, title = 
             <tr className="bg-slate-950 text-xs font-mono font-bold text-slate-200 uppercase tracking-wider border-b border-slate-700">
               <th className="py-3.5 px-4">Event ID</th>
               <th className="py-3.5 px-4">Timestamp</th>
-              <th className="py-3.5 px-4">Source IP</th>
+              <th className="py-3.5 px-4">Source / Data Source</th>
               <th className="py-3.5 px-4">Dst Port</th>
               <th className="py-3.5 px-4">Attack Classification</th>
               <th className="py-3.5 px-4">Confidence</th>
