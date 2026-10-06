@@ -147,6 +147,7 @@ export default function Websites() {
                     <p className="text-sm font-bold text-slate-100">{item.label}</p>
                     <p className="mt-0.5 text-xs text-slate-500">{item.domain}</p>
                     {item.http_status && <p className="mt-1 text-[10px] text-slate-600">Last HTTP status: {item.http_status}</p>}
+                    {item.last_event_at && <p className="mt-1 text-[10px] text-emerald-400">Last ML activity: {new Date(item.last_event_at).toLocaleString()}</p>}
                   </div>
                 </div>
 
