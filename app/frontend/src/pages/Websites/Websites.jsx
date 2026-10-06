@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Globe2, Plus, ArrowRight, CheckCircle2, Clock3, Link2, X, Info, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
-import { addWebsite, connectWebsite, deleteWebsite, fetchWebsites } from '../../services/api';
+import { Globe2, Plus, ArrowRight, CheckCircle2, Clock3, Link2, X, Info, RefreshCw, AlertCircle, Trash2, FlaskConical, ShieldCheck } from 'lucide-react';
+import { addWebsite, connectWebsite, deleteWebsite, fetchWebsites, runCicidsDemoSample } from '../../services/api';
 
 export default function Websites() {
   const [items, setItems] = useState([]);
@@ -10,6 +10,8 @@ export default function Websites() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [connectingId, setConnectingId] = useState(null);
+  const [verifyingId, setVerifyingId] = useState(null);
+  const [lastPrediction, setLastPrediction] = useState(null);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
 
@@ -51,7 +53,26 @@ export default function Websites() {
       setError(res.details ? `${res.error} ${res.details}` : res.error);
       return;
     }
-    setMessage('Monitoring is active. AEGIS is now checking this website from the hosted service with no code installation required.');
+    setMessage('Website verified. Availability monitoring is active. Run ML verification below to execute the deployed Random Forest and save a prediction to Live Activity.');
+    await load();
+  };
+
+  const verifyMl = async (website) => {
+    setError(null);
+    setMessage(null);
+    setVerifyingId(website.id);
+    const res = await runCicidsDemoSample(website.id);
+    setVerifyingId(null);
+    if (!res.success) {
+      setError(res.error);
+      return;
+    }
+    setLastPrediction({
+      website: res.data.website || website.domain,
+      attackType: res.data.attack_type,
+      confidence: res.data.confidence,
+    });
+    setMessage(`ML verification complete for ${res.data.website || website.domain}. Prediction saved to Live Activity.`);
     await load();
   };
 
@@ -143,6 +164,13 @@ export default function Websites() {
                     {item.status === 'monitoring' ? 'Recheck website' : ['connected','verified'].includes(item.status) ? 'Recheck website' : 'Connect website'}
                   </button>
 
+                  {['connected','verified','monitoring'].includes(item.status) && (
+                    <button onClick={()=>verifyMl(item)} disabled={verifyingId===item.id} className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/15 disabled:opacity-50">
+                      {verifyingId===item.id ? <RefreshCw className="h-3.5 w-3.5 animate-spin"/> : <FlaskConical className="h-3.5 w-3.5"/>}
+                      {verifyingId===item.id ? 'Predicting…' : 'Run ML verification'}
+                    </button>
+                  )}
+
                   <button onClick={()=>remove(item.id)} className="rounded-xl border border-slate-800 bg-slate-950/40 p-2 text-slate-600 hover:border-rose-500/30 hover:text-rose-400" title="Remove website"><Trash2 className="h-3.5 w-3.5"/></button>
                 </div>
               </div>
@@ -151,13 +179,29 @@ export default function Websites() {
         </section>
       )}
 
+      {lastPrediction && (
+        <section className="rounded-2xl border border-emerald-500/25 bg-emerald-950/20 p-5">
+          <div className="flex items-start gap-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-300"/>
+            <div>
+              <h3 className="text-sm font-bold text-white">Latest saved ML prediction</h3>
+              <p className="mt-1 text-xs text-slate-300">
+                <span className="font-semibold text-emerald-300">{lastPrediction.attackType}</span>
+                {' '}on {lastPrediction.website} • Confidence {lastPrediction.confidence}%
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">This result was produced by the deployed 100-tree Random Forest using the project’s labeled CICIDS2017 verification flow and saved to Live Activity.</p>
+            </div>
+          </div>
+        </section>
+      )}
+
       <section className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5">
         <div className="flex items-start gap-3">
           <Info className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300"/>
           <div>
-            <h3 className="text-sm font-bold text-white">No client code required</h3>
+            <h3 className="text-sm font-bold text-white">Monitoring modes</h3>
             <p className="mt-1 text-xs leading-5 text-slate-500">
-              AEGIS now performs hosted external checks directly from the monitoring service. Your client does not need to download files, install software, or edit the website code. This mode monitors reachability, HTTP status, response latency, service failures, and related alerts.
+              Website verification requires no client installation and monitors reachability, HTTP status and response latency. Random Forest intrusion predictions require 78 standardized CICIDS2017 flow features from a compatible traffic source. For your defense, use “Run ML verification” to execute the real deployed model, save the prediction, mark ML activity, and display the result in Live Activity without pretending the sample is live visitor traffic.
             </p>
           </div>
         </div>
