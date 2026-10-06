@@ -115,10 +115,21 @@ def run_cicids_demo_sample():
 
     db = get_db()
     try:
-        site = db.execute(
-            "SELECT * FROM monitored_websites WHERE user_id = ? ORDER BY id DESC LIMIT 1",
-            (user["id"],),
-        ).fetchone()
+        data = request.get_json(silent=True) or {}
+        website_id = data.get("website_id")
+
+        if website_id is not None:
+            site = db.execute(
+                "SELECT * FROM monitored_websites WHERE id = ? AND user_id = ?",
+                (website_id, user["id"]),
+            ).fetchone()
+            if not site:
+                return jsonify({"success": False, "error": "Website not found for this account."}), 404
+        else:
+            site = db.execute(
+                "SELECT * FROM monitored_websites WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+                (user["id"],),
+            ).fetchone()
 
         destination = site["domain"] if site else "CICIDS2017 verification sample"
 
@@ -143,6 +154,11 @@ def run_cicids_demo_sample():
                 1,
             ),
         )
+        if site:
+            db.execute(
+                "UPDATE monitored_websites SET last_event_at = ?, status = 'monitoring' WHERE id = ?",
+                (now, site["id"]),
+            )
         db.commit()
     finally:
         db.close()
@@ -154,5 +170,7 @@ def run_cicids_demo_sample():
         "engine": "Random Forest",
         "tree_count": ml.get("tree_count", 100),
         "feature_count": 78,
+        "website": destination,
+        "monitoring_state": "active" if site else "verification-only",
         **result,
     })
