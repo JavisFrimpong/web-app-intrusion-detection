@@ -58,13 +58,13 @@ def predict():
             """
             INSERT INTO predictions (
                 user_id, prediction, attack_type, confidence, timestamp,
-                source_ip, source_port, destination_ip, destination_port, packet_count
+                source_ip, source_port, destination_ip, destination_port, packet_count, event_source
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user["id"], result["prediction"], result["attack_type"], result["confidence"], now,
-                source_ip, source_port, destination_ip, destination_port, packet_count,
+                source_ip, source_port, destination_ip, destination_port, packet_count, "Manual Prediction",
             ),
         )
         db.commit()
