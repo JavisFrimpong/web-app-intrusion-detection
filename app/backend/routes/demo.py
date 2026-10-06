@@ -113,6 +113,12 @@ def run_cicids_demo_sample():
     result = predict_features(CICIDS_SAMPLE)
     now = datetime.utcnow().isoformat()
 
+    # Use the real requester IP for the verification event. On a hosted
+    # deployment this is normally the public IP visible to Render (or the
+    # first trusted proxy-forwarded address), not the PC's private LAN IP.
+    forwarded_for = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+    requester_ip = forwarded_for or request.remote_addr or "unknown"
+
     db = get_db()
     try:
         data = request.get_json(silent=True) or {}
@@ -147,7 +153,7 @@ def run_cicids_demo_sample():
                 result["attack_type"],
                 result["confidence"],
                 now,
-                "CICIDS2017-DEMO",
+                requester_ip,
                 0,
                 destination,
                 0,
@@ -172,5 +178,6 @@ def run_cicids_demo_sample():
         "feature_count": 78,
         "website": destination,
         "monitoring_state": "active" if site else "verification-only",
+        "source_ip": requester_ip,
         **result,
     })
