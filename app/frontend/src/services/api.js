@@ -175,10 +175,9 @@ export const fetchSystemStatus = async () => {
 };
 
 /**
- * Fetch captured network traffic flow history from backend database.
- * This is real data written by the flow capture engine (flow_monitor.py)
- * as it processes live packets — every row here corresponds to an
- * actual flow that was sniffed, feature-extracted, and classified.
+ * Fetch stored ML detection history from the backend database.
+ * Rows can come from a compatible 78-feature traffic source or the
+ * explicitly labeled CICIDS2017 verification flow used for defense/demo.
  * Endpoint: GET /history
  */
 export const fetchDetectionHistory = async (limit = 100) => {
@@ -368,10 +367,10 @@ export const deleteWebsite = async (websiteId) => {
 };
 
 
-export const runCicidsDemoSample = async () => {
+export const runCicidsDemoSample = async (websiteId = null) => {
   const api = createApiClient();
   try {
-    const response = await api.post('/demo/cicids-sample');
+    const response = await api.post('/demo/cicids-sample', websiteId ? { website_id: websiteId } : {});
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.response?.data?.error || error.message };
