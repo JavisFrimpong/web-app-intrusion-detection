@@ -64,14 +64,14 @@ def ingest_flow(site_key):
             """
             INSERT INTO predictions (
                 user_id, prediction, attack_type, confidence, timestamp,
-                source_ip, source_port, destination_ip, destination_port, packet_count
+                source_ip, source_port, destination_ip, destination_port, packet_count, event_source
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 site["user_id"], result["prediction"], result["attack_type"],
                 result["confidence"], now, source_ip, source_port,
-                site["domain"], destination_port, packet_count,
+                site["domain"], destination_port, packet_count, "Live Flow",
             ),
         )
 
