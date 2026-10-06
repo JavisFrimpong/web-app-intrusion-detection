@@ -46,7 +46,7 @@ export const useDetectionHistory = (pollInterval = 4000) => {
       if (isMonitoringActive && historyRes.history.length > 0) {
         const threats = [...historyRes.history]
           .reverse()
-          .filter(item => item.prediction !== 0 && item.status === 'Blocked');
+          .filter(item => item.prediction !== 0 && item.status === 'Detected');
 
         threats.forEach(threat => {
           if (!alertedThreatIds.current.has(threat.id)) {
