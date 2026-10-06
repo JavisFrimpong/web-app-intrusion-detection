@@ -51,7 +51,7 @@ export default function DetectionTable({ detections = [], limit = null, title = 
             {title}
           </h3>
           <p className="text-xs text-slate-400 font-mono">
-            Recorded flow telemetry and ML classification predictions
+            Each compatible incoming flow is classified independently and saved automatically.
           </p>
         </div>
 
@@ -99,9 +99,11 @@ export default function DetectionTable({ detections = [], limit = null, title = 
               <th className="py-3.5 px-4">Event ID</th>
               <th className="py-3.5 px-4">Timestamp</th>
               <th className="py-3.5 px-4">Source / Data Source</th>
-              <th className="py-3.5 px-4">Dst Port</th>
+              <th className="py-3.5 px-4">Destination Website</th>
+              <th className="py-3.5 px-4">Event Source</th>
               <th className="py-3.5 px-4">Attack Classification</th>
               <th className="py-3.5 px-4">Confidence</th>
+              <th className="py-3.5 px-4">Severity</th>
               <th className="py-3.5 px-4 text-right">Status</th>
             </tr>
           </thead>
@@ -127,8 +129,14 @@ export default function DetectionTable({ detections = [], limit = null, title = 
                       {item.sourceIp}
                     </td>
 
-                    <td className="py-3.5 px-4 font-mono text-slate-200">
-                      :{item.destPort || 80}
+                    <td className="py-3.5 px-4 font-mono text-slate-200 max-w-[180px] truncate" title={item.destIp}>
+                      {item.destIp || '—'}
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <span className="rounded-full border border-slate-700 bg-slate-950/60 px-2.5 py-1 text-[10px] font-bold text-slate-300 whitespace-nowrap">
+                        {item.eventSource || 'Legacy Record'}
+                      </span>
                     </td>
 
                     <td className="py-3.5 px-4">
@@ -153,6 +161,17 @@ export default function DetectionTable({ detections = [], limit = null, title = 
                       {formatConfidence(item.confidence)}
                     </td>
 
+                    <td className="py-3.5 px-4">
+                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase ${
+                        item.severity === 'Critical' ? 'border-rose-500/40 bg-rose-500/15 text-rose-300' :
+                        item.severity === 'High' ? 'border-orange-500/40 bg-orange-500/15 text-orange-300' :
+                        item.severity === 'Medium' ? 'border-amber-500/40 bg-amber-500/15 text-amber-300' :
+                        'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                      }`}>
+                        {item.severity || 'Normal'}
+                      </span>
+                    </td>
+
                     <td className="py-3.5 px-4 text-right">
                       <span className={`px-3 py-1 text-xs font-black font-mono rounded-full border uppercase ${
                         isBenign
@@ -167,7 +186,7 @@ export default function DetectionTable({ detections = [], limit = null, title = 
               })
             ) : (
               <tr>
-                <td colSpan="7" className="py-8 text-center text-slate-500 font-mono text-xs">
+                <td colSpan="9" className="py-8 text-center text-slate-500 font-mono text-xs">
                   No detection events matching search criteria.
                 </td>
               </tr>
