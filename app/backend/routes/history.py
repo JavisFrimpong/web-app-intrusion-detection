@@ -46,6 +46,18 @@ def get_history():
                 display_attack = raw_attack or "Anomaly"
                 status_label = "Detected"
 
+            upper_attack = display_attack.upper()
+            if display_attack == "BENIGN":
+                severity = "Normal"
+            elif "HEARTBLEED" in upper_attack or "INFILTRATION" in upper_attack or "SQL" in upper_attack or "DDOS" in upper_attack:
+                severity = "Critical"
+            elif "XSS" in upper_attack or "BRUTE" in upper_attack or "BOT" in upper_attack or "DOS" in upper_attack:
+                severity = "High"
+            elif "PORTSCAN" in upper_attack or "SCAN" in upper_attack:
+                severity = "Medium"
+            else:
+                severity = "High" if pred_val != 0 else "Normal"
+
             formatted_history.append({
                 "id": f"DET-{row['id']}",
                 "timestamp": row["timestamp"],
@@ -57,6 +69,8 @@ def get_history():
                 "confidence": row["confidence"] or 0,
                 "protocol": "TCP",
                 "status": status_label,
+                "severity": severity,
+                "eventSource": row["event_source"] or "Legacy Record",
             })
 
         formatted_alerts = [{
